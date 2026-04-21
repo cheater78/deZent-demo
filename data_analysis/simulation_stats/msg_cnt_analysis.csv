@@ -1,0 +1,16 @@
+n_gw,n_max_sm,z,msg_cnt_gw_gw,msg_cnt_gw_ce,d_t,scenario,dist_sm,seed
+5,20,1,8064,4512,7260,centralized,normal,1
+5,20,1,8640,4800,7260,centralized,normal,2
+5,20,1,7680,4320,7260,centralized,normal,3
+5,20,1,8448,4704,7260,centralized,normal,4
+5,20,1,9216,5088,7260,centralized,normal,5
+5,20,1,9312,4128,7260,deZent,normal,1
+5,20,1,9888,4416,7260,deZent,normal,2
+5,20,1,8918,3936,7260,deZent,normal,3
+5,20,1,9696,4320,7260,deZent,normal,4
+5,20,1,10457,4704,7260,deZent,normal,5
+5,20,1,8064,4512,7260,fully_decentralized,normal,1
+5,20,1,8640,4800,7260,fully_decentralized,normal,2
+5,20,1,7680,4320,7260,fully_decentralized,normal,3
+5,20,1,8448,4704,7260,fully_decentralized,normal,4
+5,20,1,9216,5088,7260,fully_decentralized,normal,5

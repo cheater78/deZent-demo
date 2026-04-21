@@ -1,0 +1,9 @@
+bitarray~=3.8.0
+fnvhash~=0.2.1
+numpy~=2.4.1
+matplotlib~=3.10.8
+mmh3~=5.2.0
+pandas~=2.3.3
+scipy~=1.17.0
+simpy~=4.1.1
+seaborn~=0.13.2
