@@ -1,10 +1,13 @@
 import pandas as pd
+import datetime
+from smartmeter import SMID, MeasurementValue, MeasurementKey
 
+RecordLogType = dict[MeasurementKey, dict[SMID, "RecordLogEntry"]]
 class RecordLog():
     def __init__(self):
-        self.log = {}
+        self.log: RecordLogType = {}
         
-    def add_new_m_to_record_log(self, curr_measurement, m_key, sm_id, sm_type, t):
+    def add_new_m_to_record_log(self, curr_measurement: MeasurementValue, m_key: MeasurementKey, sm_id: SMID, sm_type: str, t: datetime.datetime):
         # new measurement -> cannot have been published yet
         is_published = False
         # measurement value was already observed at some SM before -> either add (sm: t) newly or update t for this observation at this SM
@@ -33,21 +36,18 @@ class RecordLog():
             for sm, log_entry in self.log[i].items():
                 print("__record log__: measurement_key: ", i, ", SM: ", sm, log_entry)
 
-
-
 class RecordLogEntry():
-    def __init__(self, m, sm_type, time, is_pub):
-        self.orig_measurement = m
-        self.sm_type = sm_type
-        self.time = time
-        self.is_published = is_pub
+    def __init__(self, m: MeasurementValue, sm_type: str, time: datetime.datetime, is_pub: bool):
+        self.orig_measurement: MeasurementValue = m
+        self.sm_type: str = sm_type
+        self.time: datetime.datetime = time
+        self.is_published: bool = is_pub
         
     def __str__(self):
         return ("orig value: " + str(self.orig_measurement) + " time: " + str(self.time) + 
                 ", is_published " + str(self.is_published) )
 
 
-    
 class PubLog():
     def __init__(self):
         self.log = pd.DataFrame(columns = ["value", "time", "ID", "orig_measurement", "type"])
@@ -55,8 +55,6 @@ class PubLog():
     def add_new_tuple(self, pub_tuple):
         new_record = pd.DataFrame({"value": [pub_tuple.key], "time": [pub_tuple.time], "ID": [pub_tuple.id], "orig_measurement": [pub_tuple.measurement], "type": [pub_tuple.sm_type]})
         self.log = pd.concat([self.log, new_record], ignore_index = True) # Appending new rows using concat()
-
-                
 
 class PubLogEntry():
     def __init__(self, key, orig_measurement, time, sm_id, sm_type):

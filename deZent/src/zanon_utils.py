@@ -1,11 +1,16 @@
 from scipy.stats import truncnorm
 import numpy as np
 import random
+import datetime
 
+from logging_utils import RecordLog
+from counting_data_structure import CntDataStructure
 from counting_bloom_filter import CBloomFilter
 
+from smartmeter import SMID, MeasurementKey
+
 # https://stackoverflow.com/questions/36894191/how-to-get-a-normal-distribution-within-a-range-in-numpy
-def get_truncated_normal(mean=0, sd=1, low=0, upp=10):
+def get_truncated_normal(mean = 0, sd = 1, low = 0, upp = 10): # type: ignore
     tn = truncnorm(
         (low - mean) / sd, (upp - mean) / sd, loc=mean, scale=sd)
     return tn
@@ -14,7 +19,7 @@ def get_truncated_normal(mean=0, sd=1, low=0, upp=10):
 '''
     create count structure (e.g. CBF) for data collection
 '''
-def create_cnt_structure(n_sm_conn, anon_cycles, struct_type):
+def create_cnt_structure(n_sm_conn: int, anon_cycles: int, struct_type: str) -> CntDataStructure:
     match struct_type:
         case "bloom":
             # n: number of expected items -> estimate number of items that occur within delta_t at all the gateways
@@ -41,28 +46,22 @@ def create_cnt_structure(n_sm_conn, anon_cycles, struct_type):
             k = max(1, k_est)
             k = min(k, 6) # use between 1 and 6 hash functions
             cnt_struct = CBloomFilter(n, N, m, k)
-
+        case _:
+            raise RuntimeError(f"CntDataStructure type {struct_type} is not supported!")
     return cnt_struct
-
-"""
-def create_central_cnt():
-    cs = {"value_cnt":[]}
-    return cs
-"""
-
 
 '''
     delete measurements from timepoints older than delta_t 
         update local record list to keep only valid data points 
 '''
-def apply_deltat_to_records(record_log, curr_time, dt):
+def apply_deltat_to_records(record_log: RecordLog, curr_time: datetime.datetime, dt: datetime.timedelta) -> RecordLog:
     t_limit = curr_time - dt # t_limit = datetime <= curr_time = datetime delta_t = time_delta
 
-    l_del_rec = []
+    l_del_rec: list[MeasurementKey] = []
 
     # for each record get log entries
     for record_val in record_log.log.keys():
-        l_del_sm = []
+        l_del_sm: list[SMID] = []
         for sm_id, log_entry in record_log.log[record_val].items():
             if(log_entry.time < t_limit):
                 l_del_sm.append(sm_id)
@@ -84,11 +83,11 @@ def apply_deltat_to_records(record_log, curr_time, dt):
     to ensure z-anonymity ensure that only entries remain that have occurred at least z times
         for that subtract the constant value z from each count entry in cnt_struct
 '''
-def ensure_min_cnt_z(cnt_struct, z):
+def ensure_min_cnt_z(cnt_struct: CntDataStructure, z: int) -> CntDataStructure:
     cnt_struct.subtract_constant((z-1))
     return cnt_struct
 
-def central_ensure_min_cnt_z(cnt_struct, z):
+def central_ensure_min_cnt_z(cnt_struct: CntDataStructure, z: int) -> CntDataStructure:
     cnt_struct["tuple_count"] = cnt_struct["tuple_count"] - (z-1)
     valid_cnt_struct = cnt_struct.loc[cnt_struct["tuple_count"] > 0]
     return valid_cnt_struct
@@ -99,7 +98,7 @@ def central_ensure_min_cnt_z(cnt_struct, z):
         the publication probability can be changed to provide certain deniability and provide more privacy
         if the function is called on the central entity p_pub is always 100 
 '''
-def publish_anonyimzed_tuples(data_origin, cnt_struct, p_pub, curr_time):
+def publish_anonyimzed_tuples(data_origin, cnt_struct: CntDataStructure, p_pub: int, curr_time: datetime.datetime) -> CntDataStructure:
     l_curr_records = []
     l_curr_records = data_origin.get_curr_records_for_publishing(cnt_struct, curr_time)
 
@@ -133,7 +132,7 @@ def publish_anonyimzed_tuples(data_origin, cnt_struct, p_pub, curr_time):
     return cnt_struct
 
 
-def check_cnt_struct(data_origin, cs, rec):
+def check_cnt_struct(data_origin, cs, rec) -> bool:
     valid_rec = False
     # central cnt_struct at CE
     if(data_origin.id == "CE"):
@@ -146,7 +145,7 @@ def check_cnt_struct(data_origin, cs, rec):
 
     return valid_rec
 
-def remove_rec_cnt(cnt_struct, val):
+def remove_rec_cnt(cnt_struct: CntDataStructure, val) -> CntDataStructure:
     new_cnt = cnt_struct.loc[cnt_struct["measurement"] == val]["tuple_count"] - 1
     cnt_struct.loc[cnt_struct["measurement"] == val, "tuple_count"] = new_cnt
     return cnt_struct

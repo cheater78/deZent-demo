@@ -1,27 +1,32 @@
 import random
-from numpy.random import choice
 import pandas as pd
-from datetime import datetime
+import datetime
+from typing import cast
 
-from profile_distribution import household_1p, household_2p, household_3p_more, bureau_workshop, restaurant, store, hair_dresser, bakery
+from profile_distribution import ProfileDistribution, household_1p, household_2p, household_3p_more, bureau_workshop, restaurant, store, hair_dresser, bakery
+from gateway import GWID
 
-
-
+SMID = int
+MeasurementKey=int
+MeasurementValue=int
 class SmartMeter():
-    def __init__(self,  type_dist, sm_id, gw_id):
-        #self.env = env
-        self.id = str(gw_id) + "-" + str(sm_id)
-        self.gw = gw_id
-        self.type = random.choices(type_dist.sm_sampleList, weights=type_dist.sm_dist_weights).pop()
-        self.type_class = self.choose_type_class_by_name(self.type)
-        self.data = None
-        self.load_consumption_data()
+    def __init__(self, type_dist: ProfileDistribution, sm_id: SMID, gw_id: GWID):
+        self.id: SMID = sm_id
+        self.name: str = str(gw_id) + "-" + str(sm_id)
+        self.gw: GWID = gw_id
 
+        self.type = random.choices(type_dist.sm_sampleList, weights=type_dist.sm_dist_weights).pop()
+        self.type_class = self.__choose_type_class_by_name__(self.type)
+        self.data: pd.DataFrame = pd.DataFrame()
+        self.__load_consumption_data__()
+
+    """
+    TODO: omit, reduntant to init
     def define_sm_type(self, type_dist):
         self.type = random.choices(type_dist.sm_sampleList, weights=type_dist.sm_dist_weights).pop()
         self.type_class = self.choose_type_class_by_name(self.type)
-
-    def choose_type_class_by_name(self, type):
+    """
+    def __choose_type_class_by_name__(self, type: str):
         type_class = None
         match type:
             case "1p_household":
@@ -42,22 +47,20 @@ class SmartMeter():
                 type_class = store()
             case "hair_dresser":
                 type_class = hair_dresser()
-
-        if (type_class==None):
-            raise ValueError
-        
-        return type_class
+            case _:
+                raise ValueError(f"SmartMeter type {type} is not supported!")
+        return type_class# type: ignore
     
     """
         # define consumption function based on biulding type that is measured
         # TODO: define SLA functions for each sm type to get measurement based on x (==time)
         # currently, chosen from csv table
     """
-    def load_consumption_data(self):
+    def __load_consumption_data__(self):
         data_dir = "../../data/consumption_data/"
         self.data = pd.read_csv((data_dir + self.type_class.sla_file), sep = ",", skiprows=[0,1, 2, -1], 
                                 names = ["time", "w_5", "w_6", "w_0-4","s_5", "s_6", "s_0-4", "i_5", "i_6", "i_0-4"], index_col=0 )[:-1]
-        time_idx = [datetime.strptime(x, "%H:%M").time() for x in self.data.index]
+        time_idx = [datetime.datetime.strptime(x, "%H:%M").time() for x in self.data.index]
         self.data.set_index(pd.Index(time_idx), inplace=True)
 
 
@@ -65,35 +68,34 @@ class SmartMeter():
         get measurement based on current timepoint
             * curr_time = datetime format
     '''
-    def measure_data(self, curr_time):
+    def measure_data(self, curr_time: datetime.datetime) -> tuple[MeasurementValue, MeasurementKey]:
         col_idx = self.choose_col_by_isotimestamp(curr_time)
-        t_idx = curr_time.time()
+        t_idx: datetime.time = curr_time.time()
 
         # get normalized consumption value and scale with building factor
-        consumption = self.data.loc[t_idx, col_idx]
-        consumption = int(consumption * self.type_class.scaling_sla)
-
+        consumption_data: float = cast(float, self.data.loc[t_idx, col_idx]) # type: ignore
+        consumption: MeasurementValue = MeasurementValue(consumption_data * self.type_class.scaling_sla)
+        
         # add up to 10 percent of measurement as noise
-        rnd_noise = random.randint(0, int(consumption/10))
+        rnd_noise = random.randint(0, MeasurementValue(consumption/10))
         consumption = consumption + rnd_noise
 
         key_value = self.map_measurement_to_key(consumption)
 
         return consumption, key_value
     
-
     '''
         numerical values are mapped to key values, basically value bins are used for measurement values
     '''
-    def map_measurement_to_key(self, m):
+    def map_measurement_to_key(self, m: MeasurementValue) -> MeasurementKey:
         if(m < 0):
             raise ValueError("Only consumption values > 0 allowed")
-        group_max = 25
-        group_interval = 2
+        group_max: int = 25
+        group_interval: int = 2
         if(m > group_max):
             group_max = self.find_m_group(m, group_max)
 
-        n_interval_sections = 20
+        n_interval_sections: int = 20
         group_interval = int(group_max/n_interval_sections)
         r = m % group_interval
         if(r < group_interval/2):
@@ -102,17 +104,15 @@ class SmartMeter():
             key = m + (group_interval-r)
         return key
     
-
-    def find_m_group(self, x, tmp_max):
+    def find_m_group(self, x: int, tmp_max: int) -> int:
         while(x > tmp_max):
-            tmp_max = tmp_max * 2
+            tmp_max *= 2
         return tmp_max
     
-
     '''
         map iso timestamp to columns in standard load profiles, e.g. define winter months
     '''
-    def choose_col_by_isotimestamp(self, ct):
+    def choose_col_by_isotimestamp(self, ct: datetime.datetime) -> str:
         # month
         winter_month = [12,1,2]
         summer_month = [6,7,8]
@@ -145,6 +145,3 @@ class SmartMeter():
 
         col_idx = tmp_m + "_" + tmp_d
         return col_idx
-        
-
-        

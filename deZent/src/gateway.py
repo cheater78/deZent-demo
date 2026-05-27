@@ -1,26 +1,47 @@
 import random
-
+import datetime
+import numpy as np
+import zanon_utils as z_utils
 from logging_utils import RecordLog, PubLogEntry, SimuLogEntry
 
 #from counting_bloom_filter import CBloomFilter
-from smartmeter import SmartMeter
+from smartmeter import SMID, SmartMeter, MeasurementKey
 from profile_distribution import ProfileDistribution
 
+from counting_data_structure import CntDataStructure
+from deZent.src.node import NodeID, Node
+GWID=NodeID
+CEHandle=NodeID # TODO: more a Handle than an ID -> NetAddr is needed
 
+class Gateway(Node):
 
-class Gateway():
-    def __init__(self, ce, id=None,n_sm_conn=0):
-        self.ce = ce
+    @staticmethod
+    def sample_n_sms(distribution: str, max_n_sms: int):
+        n_sm: int = 0
+        if(distribution == "uniform"):
+            n_sm = int(np.random.uniform(1,max_n_sms))
+        elif(distribution == "normal"):
+            n_sm = int(z_utils.get_truncated_normal(mean=(max_n_sms/2), sd=2, low=0, upp=max_n_sms).rvs(1)[0]) # type: ignore
+            # ensure at least 1 SM per GW
+            if(n_sm) < 1:
+                n_sm = 1
+        #elif(distribution == "poisson"):
+        #    n_sm = int(np.random.poisson(1,max_n_sms))
+        else:
+            raise ValueError("Please choose a valid distribution for generating SMs: [uniform, normal, poisson]")
 
-        self.id = id
-        self.gw_pred = None
-        self.gw_suc = None
-        
-        self.n_sm_conn = n_sm_conn
-        self.gw_type = "standard" # mieter # industry
-        self.profile_type = "tk" # "berlin", "ger"
+        return n_sm
 
-        self.l_sms = {} # TODO: remember sm id and instance
+    def __init__(self, ce: CEHandle, id: GWID, n_sm_conn: int = 0):
+        self.ce: CEHandle = ce
+
+        super().__init__(id, known_peer=0) #TODO: retrieve a known peer -> build ring
+
+        self.n_sm_conn: int = n_sm_conn
+        self.gw_type: str = "standard" # mieter # industry
+        self.profile_type: str = "tk" # "berlin", "ger"
+
+        self.l_sms: dict[SMID, SmartMeter] = {}
         self.record_log = RecordLog()
 
         self.coord_noise = 0
@@ -37,10 +58,10 @@ class Gateway():
         sm_distribution = ProfileDistribution()
         sm_distribution.generate_sm_weighted_distribution(self.profile_type, self.gw_type)
 
-        for conn in range(self.n_sm_conn):
-            sm = SmartMeter( sm_distribution, sm_id=conn, gw_id=self.id)#SmartMeter(self.env, sm_distribution, sm_id=conn, gw_id=self.id)
-            if sm.id not in self.l_sms.keys():
-                self.l_sms[sm.id] = sm # list with sms connected to GW
+        for id in range(self.n_sm_conn):
+            sm = SmartMeter(sm_distribution, sm_id=id, gw_id=self.id)
+            if sm.name not in self.l_sms.keys():
+                self.l_sms[id] = sm # list with sms connected to GW
 
 
 ##########################
@@ -50,7 +71,7 @@ class Gateway():
         coordinating gw prepares and starts collection round
             create cbf and add initial noise for protecting measurement entries
     '''
-    def add_initial_noise_to_cnt_struct(self, cnt_struct):
+    def add_initial_noise_to_cnt_struct(self, cnt_struct: CntDataStructure) -> CntDataStructure:
         self.coord_noise = random.randint(20,30)
         cnt_struct.add(self.coord_noise)
         return cnt_struct
@@ -59,7 +80,7 @@ class Gateway():
     '''
         remove initial noise before preoceeding to data publication
     '''
-    def remove_initial_noise_from_cnt_struct(self, cnt_struct):
+    def remove_initial_noise_from_cnt_struct(self, cnt_struct: CntDataStructure) -> CntDataStructure:
         cnt_struct.remove(self.coord_noise)
         return cnt_struct
 
@@ -67,7 +88,7 @@ class Gateway():
     '''
         collection round with count structure passed on from predecessor
     '''
-    def add_curr_measurement(self, cnt_struct, curr_time):
+    def add_curr_measurement(self, cnt_struct: CntDataStructure, curr_time: datetime.datetime) -> CntDataStructure:
         # get measurement from smart meters connected to gw
         self.collect_curr_measurement_from_sms(curr_time)
 
@@ -80,7 +101,7 @@ class Gateway():
         get new measurement for the current time point from sm and add to list
             save values in dictionary for smart meters with measurements and time point
     '''
-    def collect_curr_measurement_from_sms(self, curr_time):
+    def collect_curr_measurement_from_sms(self, curr_time: datetime.datetime):
 
         for sm_id in self.l_sms.keys():
             # get sm instance to request current measurement
@@ -104,10 +125,10 @@ class Gateway():
         get list of PubLogEntry Entries that have been counted more than z times for publishing
             only publish those entries that have been recorded in current clock cycle
     '''
-    def get_curr_records_for_publishing(self, cnt_struct, curr_time):
+    def get_curr_records_for_publishing(self, cnt_struct: CntDataStructure, curr_time: datetime.time) -> list[PubLogEntry]:
         # find out which of the records in my local log are in cnt_struc t, meaning they occurred at more than z individuals
-        existing_record_keys = cnt_struct.existing_records(self.record_log.log.keys())
-        pub_records = []
+        existing_record_keys = cnt_struct.existing_records(list(self.record_log.log.keys()))
+        pub_records: list[PubLogEntry] = []
         #print("__check__: existing records: ", existing_record_keys)
         # get those entries that are from the current round (timepoint) and could get published
         for m_key in existing_record_keys:
@@ -122,21 +143,17 @@ class Gateway():
     '''
         return PubLogEntries with current timestamp
     '''
-    def get_entries_w_current_timestamp(self, m_key, curr_time):
-        curr_records = []
+    def get_entries_w_current_timestamp(self, m_key: MeasurementKey, curr_time: datetime.time) -> list[PubLogEntry]:
+        curr_records: list[PubLogEntry] = []
         for sm_id, log_entry in self.record_log.log[m_key].items():
             if( (log_entry.time == curr_time) and (not log_entry.is_published) ):
                 new_pub_log = PubLogEntry(m_key, log_entry.orig_measurement, log_entry.time, sm_id, log_entry.sm_type)
                 curr_records.append(new_pub_log)
         return curr_records
     
-    
-    
     def publish_tuple(self, tuple):
         self.ce.publish_tuple(tuple)
         self.gw_ce_msg_cnt += 1
-
-
 
     def get_gw_ce_msg_cnt(self):
         tmp_cnt = self.gw_ce_msg_cnt

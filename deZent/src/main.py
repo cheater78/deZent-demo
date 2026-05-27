@@ -89,7 +89,7 @@ def generate_log_index(z_env, l_col):
 '''
     start simulation of distributed network with specified number of GWs and frequently arriving SMs
 '''
-def main():
+def main_legacy():
     # Setup system parameters
     
     if(len(sys.argv) != 5):
@@ -258,7 +258,12 @@ def main():
     expected_decent_msg_cnt_gw_ce = rounds  # Message from CE to coord gw
     expected_decent_msg_cnt_gw_ce += decent_pub  # each published tuple
     print("Decentral expected MSG CNT GW CE: ", expected_decent_msg_cnt_gw_ce)
+
+def main() -> int:
+
     
+
+    return 0
 
 
 if __name__ == "__main__":

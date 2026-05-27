@@ -2,7 +2,6 @@ import pandas as pd
 
 from logging_utils import RecordLog, PubLog, PubLogEntry, SimuLog
 
-
 class CentralEntity():
     def __init__(self):
         self.clock = 0

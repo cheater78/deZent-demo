@@ -1,4 +1,4 @@
-from abc import ABC, abstractmethod
+from abc import ABC
 
 # # https://www.bdew.de/energie/standardlastprofile-strom/
 # # https://www.bayernwerk-netz.de/de/energie-anschliessen/netznutzung-strom/lastprofilverfahren.html
@@ -11,49 +11,53 @@ from abc import ABC, abstractmethod
 # https://www.hwk-berlin.de/artikel/handwerk-und-food-91,0,685.html
 # https://www.dehoga-bundesverband.de/zahlen-fakten/anzahl-der-unternehmen/
 
-
-
-"""
-"""
 class ProfileDistribution():
     def __init__(self):
         self.sm_sampleList = []
         self.sm_dist_weights = []
     
-    def generate_sm_weighted_distribution(self, profile_type, gw_type):
+    def generate_sm_weighted_distribution(self, profile_type: str, gw_type: str):
         gw_profile = self.choose_profile_by_name(profile_type)
         self.sm_sampleList, self.sm_dist_weights = gw_profile.get_weighted_distribution(gw_type)
 
-    def choose_profile_by_name(self, type):
+    def choose_profile_by_name(self, type: str):
         profile = None
         match type:
             case "tk":
                 profile = ProfileDistribution_tk()
             case "bln":
-                profile = ProfileDistribution_bln()
-            # TODO: else: Error
-        if (profile==None):
-            raise ValueError
+                raise RuntimeError(f"ProfileDistribution_bln is not implemented!")
+                # profile = ProfileDistribution_bln()
+            case _:
+                raise ValueError(f"ProfileDistribution type {type} is not supported!")
         return profile
 
-
-"""
-"""
 class ProfileDistribution_mask(ABC):
-    # TODO abstractvariable or @abstractmethod: ensure that all have the same attributes
     def __init__(self):
-        pass
+        # attribute template: assign proper values in the respective implementaion
+        # NOTE: as far as ik, abstract varibles aren't a thing - you can enforce attributes by runtime object dict inspection, but that's often overkill
+        self.ratio_1p = 0
+        self.ratio_2p = 0
+        self.ratio_3p = 0
+        self.ratio_4p = 0
+        self.n_farms = 0
+        self.ratio_workshops = 0
+        self.ratio_bakery = 0
+        self.ratio_restaurants = 0
+        self.ratio_store = 0
+        self.ratio_hair = 0
 
-    def get_weighted_distribution(self, gw_type):
+    def get_weighted_distribution(self, gw_type: str) -> tuple[list[str], list[float]]:
         ' TODO extract relevant parameters'
         match gw_type:
             case "standard":
                 # use all entity types
-                sample_list = ["1p_household", "2p_household", "3p_household", "4p_household", "workshop", "bakery", "restaurant", "store", "hair_dresser"]
-                weighted_list = [self.ratio_1p, self.ratio_2p, self.ratio_3p, self.ratio_4p, self.ratio_workshops, self.ratio_bakery, self.ratio_restaurants, self.ratio_store, self.ratio_hair]
+                sample_list: list[str] = ["1p_household", "2p_household", "3p_household", "4p_household", "workshop", "bakery", "restaurant", "store", "hair_dresser"]
+                weighted_list: list[float] = [self.ratio_1p, self.ratio_2p, self.ratio_3p, self.ratio_4p, self.ratio_workshops, self.ratio_bakery, self.ratio_restaurants, self.ratio_store, self.ratio_hair]
+            case _:
+                raise RuntimeError(f"Gateway type {gw_type} is not supported!")
         # TODO: for key in sample_list:
         return sample_list, weighted_list
-
 
 """
 class ProfileDistribution_GER():
@@ -89,7 +93,7 @@ class ProfileDistribution_NRW():
         n_bakery = 1
         n_industry = 1
 """
-
+"""
 class ProfileDistribution_bln():
     def __init__(self):
         # https://www.destatis.de/DE/Themen/Gesellschaft-Umwelt/Bevoelkerung/Haushalte-Familien/Tabellen/1-2-privathaushalte-bundeslaender.html
@@ -110,7 +114,7 @@ class ProfileDistribution_bln():
         # https://de.statista.com/statistik/daten/studie/1054669/umfrage/unternehmen-im-friseurhandwerk-nach-bundesland-in-deutschland/
         n_store = 19200 # https://gl.berlin-brandenburg.de/wp-content/uploads/2024-01-15_EH_Endfassung.pdf
         n_restaurants = 9050 # https://de.statista.com/statistik/daten/studie/500842/umfrage/anzahl-der-unternehmen-in-der-gastronomie-nach-bundeslaendern/
-
+"""
 
 """
     smart meter generator will call the profile along with a max number of smart meters (=entities that shall be modeled)
@@ -124,7 +128,7 @@ class ProfileDistribution_tk(ProfileDistribution_mask):
         # Profiles in Treptow-Köpenick (close to average numbers of berlin)
         self.tot_n_households = 144600
         self.ratio_households = self.tot_n_households / self.tot_n_entities
-        # TODO: add ratio for householöds in overall profile
+        # TODO: add ratio for households in overall profile
         self.relative_1p_household = 0.479 # 69300
         self.ratio_1p = self.relative_1p_household * self.ratio_households
 
