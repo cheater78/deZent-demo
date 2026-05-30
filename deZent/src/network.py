@@ -3,9 +3,9 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 
-from central_entity import CentralEntity
-from gateway import Gateway
-from smartmeter import SmartMeter
+from deZent.src.legacy.central_entity import CentralEntity
+from deZent.src.legacy.gateway import Gateway
+from deZent.src.ami.smart_meter import SmartMeter
 from zanon import zAnon
 import zanon_utils as z_utils
 

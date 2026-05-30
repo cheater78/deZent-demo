@@ -96,6 +96,9 @@ class CBloomFilter(CntDataStructure):
 				bit_str = ''
 		print(bit_str)
 
+	'''
+		The Hash function used by the CFB to index its items
+	'''
 	def __cfb_hash__(self, item: MeasurementKey, seed: int) -> int:
 		# previously was:
 		# return fnv1a_32(item.encode(),seed) % self.m # only 

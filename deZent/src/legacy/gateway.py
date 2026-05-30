@@ -1,19 +1,18 @@
-import random
 import datetime
 import numpy as np
 import zanon_utils as z_utils
 from logging_utils import RecordLog, PubLogEntry, SimuLogEntry
 
 #from counting_bloom_filter import CBloomFilter
-from smartmeter import SMID, SmartMeter, MeasurementKey
-from profile_distribution import ProfileDistribution
+from deZent.src.ami.smart_meter import SMID, SmartMeter, MeasurementKey
+from deZent.src.legacy.profile_distribution import ProfileDistribution
 
 from counting_data_structure import CntDataStructure
 from deZent.src.node import NodeID, Node
 GWID=NodeID
 CEHandle=NodeID # TODO: more a Handle than an ID -> NetAddr is needed
 
-class Gateway(Node):
+class Gateway():
 
     @staticmethod
     def sample_n_sms(distribution: str, max_n_sms: int):
@@ -67,28 +66,20 @@ class Gateway(Node):
 ##########################
 ##### COLLECTION ROUND #####
 ##########################
-    '''
-        coordinating gw prepares and starts collection round
-            create cbf and add initial noise for protecting measurement entries
-    '''
-    def add_initial_noise_to_cnt_struct(self, cnt_struct: CntDataStructure) -> CntDataStructure:
-        self.coord_noise = random.randint(20,30)
-        cnt_struct.add(self.coord_noise)
-        return cnt_struct
     
-    
+    '''
+        when coordinating gw prepares and starts collection round
+        create cbf and add initial noise for protecting measurement entries
+    '''
+
     '''
         remove initial noise before preoceeding to data publication
     '''
-    def remove_initial_noise_from_cnt_struct(self, cnt_struct: CntDataStructure) -> CntDataStructure:
-        cnt_struct.remove(self.coord_noise)
-        return cnt_struct
-
 
     '''
         collection round with count structure passed on from predecessor
     '''
-    def add_curr_measurement(self, cnt_struct: CntDataStructure, curr_time: datetime.datetime) -> CntDataStructure:
+    def add_curr_measurement(self, cnt_struct: CntDataStructure, curr_time: datetime.time) -> CntDataStructure:
         # get measurement from smart meters connected to gw
         self.collect_curr_measurement_from_sms(curr_time)
 
@@ -101,7 +92,7 @@ class Gateway(Node):
         get new measurement for the current time point from sm and add to list
             save values in dictionary for smart meters with measurements and time point
     '''
-    def collect_curr_measurement_from_sms(self, curr_time: datetime.datetime):
+    def collect_curr_measurement_from_sms(self, curr_time: datetime.time):
 
         for sm_id in self.l_sms.keys():
             # get sm instance to request current measurement

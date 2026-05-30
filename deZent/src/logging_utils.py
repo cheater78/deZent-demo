@@ -1,6 +1,6 @@
 import pandas as pd
 import datetime
-from smartmeter import SMID, MeasurementValue, MeasurementKey
+from deZent.src.ami.smart_meter import SMID, MeasurementValue, MeasurementKey
 
 RecordLogType = dict[MeasurementKey, dict[SMID, "RecordLogEntry"]]
 class RecordLog():

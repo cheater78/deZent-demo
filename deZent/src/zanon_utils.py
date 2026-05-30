@@ -7,7 +7,7 @@ from logging_utils import RecordLog
 from counting_data_structure import CntDataStructure
 from counting_bloom_filter import CBloomFilter
 
-from smartmeter import SMID, MeasurementKey
+from deZent.src.ami.smart_meter import SMID, MeasurementKey
 
 # https://stackoverflow.com/questions/36894191/how-to-get-a-normal-distribution-within-a-range-in-numpy
 def get_truncated_normal(mean = 0, sd = 1, low = 0, upp = 10): # type: ignore
@@ -77,20 +77,6 @@ def apply_deltat_to_records(record_log: RecordLog, curr_time: datetime.datetime,
         del record_log.log[del_rec]
 
     return record_log
-
-
-'''
-    to ensure z-anonymity ensure that only entries remain that have occurred at least z times
-        for that subtract the constant value z from each count entry in cnt_struct
-'''
-def ensure_min_cnt_z(cnt_struct: CntDataStructure, z: int) -> CntDataStructure:
-    cnt_struct.subtract_constant((z-1))
-    return cnt_struct
-
-def central_ensure_min_cnt_z(cnt_struct: CntDataStructure, z: int) -> CntDataStructure:
-    cnt_struct["tuple_count"] = cnt_struct["tuple_count"] - (z-1)
-    valid_cnt_struct = cnt_struct.loc[cnt_struct["tuple_count"] > 0]
-    return valid_cnt_struct
 
 '''
     publish tuples that have been successfully anonymized with z

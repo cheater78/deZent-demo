@@ -11,6 +11,8 @@ from abc import ABC
 # https://www.hwk-berlin.de/artikel/handwerk-und-food-91,0,685.html
 # https://www.dehoga-bundesverband.de/zahlen-fakten/anzahl-der-unternehmen/
 
+
+
 class ProfileDistribution():
     def __init__(self):
         self.sm_sampleList = []
@@ -40,7 +42,6 @@ class ProfileDistribution_mask(ABC):
         self.ratio_2p = 0
         self.ratio_3p = 0
         self.ratio_4p = 0
-        self.n_farms = 0
         self.ratio_workshops = 0
         self.ratio_bakery = 0
         self.ratio_restaurants = 0

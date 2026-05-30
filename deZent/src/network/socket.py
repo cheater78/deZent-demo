@@ -4,7 +4,7 @@ import threading
 from dataclasses import dataclass
 import ssl
 
-from sys_utils import run
+from deZent.src.utils.sys_utils import run
 
 
 VNetStackID = int
