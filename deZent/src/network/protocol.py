@@ -1,6 +1,6 @@
 from enum import Enum
 
-from counting_data_structure import CntDataStructure
+from deZent.src.zanon.counting_data_structure.counting_data_structure import CntDataStructure
 
 class MessageType(Enum):
     ROUND_COLLECT = 1

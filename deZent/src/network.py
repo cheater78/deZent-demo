@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from deZent.src.legacy.central_entity import CentralEntity
 from deZent.src.legacy.gateway import Gateway
 from deZent.src.ami.smart_meter import SmartMeter
-from zanon import zAnon
+from deZent.src.legacy.zanon import zAnon
 import zanon_utils as z_utils
 
 class Network():

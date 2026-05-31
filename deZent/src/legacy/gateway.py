@@ -1,13 +1,13 @@
 import datetime
 import numpy as np
 import zanon_utils as z_utils
-from logging_utils import RecordLog, PubLogEntry, SimuLogEntry
+from deZent.src.legacy.logging_utils import RecordLog, PubLogEntry, SimuLogEntry
 
 #from counting_bloom_filter import CBloomFilter
 from deZent.src.ami.smart_meter import SMID, SmartMeter, MeasurementKey
 from deZent.src.legacy.profile_distribution import ProfileDistribution
 
-from counting_data_structure import CntDataStructure
+from deZent.src.zanon.counting_data_structure.counting_data_structure import CntDataStructure
 from deZent.src.node import NodeID, Node
 GWID=NodeID
 CEHandle=NodeID # TODO: more a Handle than an ID -> NetAddr is needed
@@ -84,7 +84,7 @@ class Gateway():
         self.collect_curr_measurement_from_sms(curr_time)
 
         # add valid measurements (wihtin delta t) of all SMs connected to this GW to count structure
-        cnt_struct.add_measurements(self.record_log.log)
+        cnt_struct.add_records(self.record_log.log)
         return cnt_struct
 
 

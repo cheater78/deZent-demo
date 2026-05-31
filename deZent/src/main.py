@@ -6,8 +6,8 @@ from datetime import datetime
 import sys
 
 from network import Network
-from zanon import zAnon
-from logging_utils import RecordLog, PubLog, SimuLog
+from deZent.src.legacy.zanon import zAnon
+from deZent.src.legacy.logging_utils import RecordLog, PubLog, SimuLog
 
 
 ###############

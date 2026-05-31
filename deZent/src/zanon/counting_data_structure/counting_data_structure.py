@@ -1,8 +1,7 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 
-from logging_utils import RecordLogType
-from deZent.src.ami.smart_meter import MeasurementKey
+from deZent.src.ami.smart_meter_measurement import MeasurementKey, RecordLog
 
 # abstract class to force sub classes to implement methods
 class CntDataStructure(ABC):
@@ -42,18 +41,18 @@ class CntDataStructure(ABC):
     def ensure_min_cnt_z(self, z: int) -> None:
         self.subtract_constant(z-1)
 
-    def add_measurements(self, log: RecordLogType) -> None:
-        for m in log.keys():
-            n_m = len(log[m])
+    def add_records(self, log: RecordLog) -> None:
+        for m_key, m_dict in log:
+            n_m = len(m_dict)
             # add m multiple times
             for _ in range(n_m):
-                self.add(m)
+                self.add(m_key)
 
-    def existing_records(self, r_list: list[MeasurementKey]) -> list[MeasurementKey]:
-        found_records: list[MeasurementKey] = []
-        for r in r_list:
-            if(self.check(r)):
-                found_records.append(r)
+    def existing_records(self, log: RecordLog) -> RecordLog:
+        found_records: RecordLog = RecordLog()
+        for m_key, records in log:
+            if(self.check(m_key)):
+                found_records.add_records_for_key(m_key, records)
         return found_records
 
 

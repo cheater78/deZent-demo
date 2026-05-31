@@ -7,7 +7,8 @@ import mmh3
 from bitarray import bitarray
 from bitarray.util import ba2int,int2ba
 
-from counting_data_structure import CntDataStructure, MeasurementKey
+from deZent.src.ami.smart_meter_measurement import MeasurementKey
+from deZent.src.zanon.counting_data_structure.counting_data_structure import CntDataStructure
 
 class CBloomFilter(CntDataStructure):
 

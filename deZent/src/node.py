@@ -1,5 +1,5 @@
 
-from counting_data_structure import CntDataStructure
+from deZent.src.zanon.counting_data_structure.counting_data_structure import CntDataStructure
 
 NodeID = int
 class deZentNetworkNode:

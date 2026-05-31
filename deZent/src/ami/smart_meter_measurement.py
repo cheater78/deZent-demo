@@ -1,31 +1,43 @@
+import pandas as pd
 from datetime import datetime
-from smart_meter import SMID, SmartMeterProfileType
+from typing import Iterator
+
+from smart_meter_profile import SmartMeterProfileType
+from smart_meter import SMID
 
 MeasurementKey=int
 MeasurementValue=int
 
-RecordLogDict = dict[MeasurementKey, dict[SMID, "RecordLogEntry"]]
+class RecordLogEntry():
+    def __init__(self, m: MeasurementValue, sm_type: SmartMeterProfileType, time: datetime, is_pub: bool):
+        self.orig_measurement: MeasurementValue = m
+        self.sm_type: SmartMeterProfileType = sm_type
+        self.time: datetime = time
+        self.is_published: bool = is_pub
+        
+    def __str__(self):
+        return ("orig value: " + str(self.orig_measurement) + " time: " + str(self.time) + 
+                ", is_published " + str(self.is_published) )
+
+RecordLogDictEntry = dict[SMID, RecordLogEntry]
+RecordLogDict = dict[MeasurementKey, RecordLogDictEntry]
 class RecordLog():
     def __init__(self):
         self.log: RecordLogDict = {}
 
-    def add_measurement(self, sm_id: SMID, sm_type: SmartMeterProfileType, t: datetime, m: MeasurementValue) -> MeasurementKey:
-        key: MeasurementKey = RecordLog.map_measurement_to_key(m)
-        self.add_new_m_to_record_log(sm_id, sm_type, t, key, m)
-        return key
-    
-    # TODO: explicitly needed like this?
-    def add_new_m_to_record_log(self, sm_id: SMID, sm_type: SmartMeterProfileType, t: datetime, m_key: MeasurementKey, curr_measurement: MeasurementValue):
-        # new measurement -> cannot have been published yet
-        is_published = False
-        # measurement value was already observed at some SM before -> either add (sm: t) newly or update t for this observation at this SM
-        if(m_key in self.log):
-            self.log[m_key][sm_id] = RecordLogEntry(curr_measurement, sm_type, t, is_published)
+    def add_record(self, sm_id: SMID, record: RecordLogEntry) -> None:
+        m_key: MeasurementKey = RecordLog.map_measurement_to_key(record.orig_measurement)
 
-        # measurement value has never been seen before -> add to dictionary
-        else:
-            self.log[m_key] = {sm_id: RecordLogEntry(curr_measurement, sm_type, t, is_published)}
-        return self.log
+        # measurement value has never been seen before -> create dictionary
+        if not m_key in self.log.keys():
+            self.log[m_key] = {}
+
+        self.log[m_key][sm_id] = record
+
+    def add_records_for_key(self, m_key: MeasurementKey, records: RecordLogDictEntry) -> None:
+        if not m_key in self.log.keys():
+            self.log[m_key] = {}
+        self.log[m_key] |= records
 
     '''
         update record that has been published and set flag to avoid publishing multiple times
@@ -43,6 +55,9 @@ class RecordLog():
         for i in self.log.keys():
             for sm, log_entry in self.log[i].items():
                 print("__record log__: measurement_key: ", i, ", SM: ", sm, log_entry)
+
+    def __iter__(self) -> Iterator[tuple[MeasurementKey, RecordLogDictEntry]]:
+        return iter(self.log.items())
 
     '''
         numerical values are mapped to key values, basically value bins are used for measurement values
@@ -75,14 +90,25 @@ class RecordLog():
         if m <= tmp_max:
             return tmp_max
         return tmp_max << ((m - 1) // tmp_max).bit_length()
+    
 
-class RecordLogEntry():
-    def __init__(self, m: MeasurementValue, sm_type: str, time: datetime, is_pub: bool):
-        self.orig_measurement: MeasurementValue = m
-        self.sm_type: str = sm_type
-        self.time: datetime = time
-        self.is_published: bool = is_pub
-        
+class PubLogEntry():
+    def __init__(self, key: MeasurementKey, orig_measurement: MeasurementValue, time: datetime, sm_id: SMID, sm_type: SmartMeterProfileType):
+        self.key = key
+        self.time = time
+        self.id = sm_id
+        self.measurement = orig_measurement
+        self.sm_type = sm_type
+
     def __str__(self):
-        return ("orig value: " + str(self.orig_measurement) + " time: " + str(self.time) + 
-                ", is_published " + str(self.is_published) )
+        return ("key: " + str(self.key) + ", value: " + str(self.measurement) + ", timepoint: " 
+                + str(self.time) + ", SM: " + str(self.id) + ", type: " + str(self.sm_type) )
+
+class PubLog():
+    def __init__(self):
+        self.log = pd.DataFrame(columns = ["value", "time", "ID", "orig_measurement", "type"])
+
+    def add_new_tuple(self, pub_tuple: PubLogEntry):
+        new_record = pd.DataFrame({"value": [pub_tuple.key], "time": [pub_tuple.time], "ID": [pub_tuple.id], "orig_measurement": [pub_tuple.measurement], "type": [pub_tuple.sm_type]})
+        self.log = pd.concat([self.log, new_record], ignore_index = True) # Appending new rows using concat()
+

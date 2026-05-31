@@ -2,7 +2,7 @@ import pandas as pd
 
 from deZent.src.node import NodeID
 
-from logging_utils import RecordLog, PubLog, PubLogEntry, SimuLog
+from deZent.src.legacy.logging_utils import RecordLog, PubLog, PubLogEntry, SimuLog
 
 CEID = NodeID
 class CentralEntity():

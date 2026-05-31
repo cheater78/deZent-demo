@@ -1,6 +1,8 @@
 import pandas as pd
-import datetime
-from deZent.src.ami.smart_meter import SMID, MeasurementValue, MeasurementKey
+from datetime import datetime
+
+from deZent.src.ami.smart_meter_measurement MeasurementKey
+from deZent.src.ami.smart_meter import SMID, MeasurementValue
 
 RecordLogType = dict[MeasurementKey, dict[SMID, "RecordLogEntry"]]
 class RecordLog():
@@ -52,12 +54,12 @@ class PubLog():
     def __init__(self):
         self.log = pd.DataFrame(columns = ["value", "time", "ID", "orig_measurement", "type"])
 
-    def add_new_tuple(self, pub_tuple):
+    def add_new_tuple(self, pub_tuple: PubLogEntry):
         new_record = pd.DataFrame({"value": [pub_tuple.key], "time": [pub_tuple.time], "ID": [pub_tuple.id], "orig_measurement": [pub_tuple.measurement], "type": [pub_tuple.sm_type]})
         self.log = pd.concat([self.log, new_record], ignore_index = True) # Appending new rows using concat()
 
 class PubLogEntry():
-    def __init__(self, key, orig_measurement, time, sm_id, sm_type):
+    def __init__(self, key: MeasurementKey, orig_measurement: MeasurementValue, time: datetime, sm_id: SMID, sm_type):
         self.key = key
         self.time = time
         self.id = sm_id

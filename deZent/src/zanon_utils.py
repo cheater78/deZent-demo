@@ -3,9 +3,9 @@ import numpy as np
 import random
 import datetime
 
-from logging_utils import RecordLog
-from counting_data_structure import CntDataStructure
-from counting_bloom_filter import CBloomFilter
+from deZent.src.legacy.logging_utils import RecordLog
+from deZent.src.zanon.counting_data_structure.counting_data_structure import CntDataStructure
+from deZent.src.zanon.counting_data_structure.counting_bloom_filter import CBloomFilter
 
 from deZent.src.ami.smart_meter import SMID, MeasurementKey
 

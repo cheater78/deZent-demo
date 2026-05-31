@@ -1,7 +1,7 @@
 import random
 import datetime
 import zanon_utils as z_utils
-import logging_utils
+import deZent.src.legacy.logging_utils as logging_utils
 
 class zAnon():
     def __init__(self, env, dt_minutes, z):
