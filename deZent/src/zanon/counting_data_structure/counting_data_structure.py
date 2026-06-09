@@ -48,7 +48,7 @@ class CntDataStructure(ABC):
             for _ in range(n_m):
                 self.add(m_key)
 
-    def existing_records(self, log: RecordLog) -> RecordLog:
+    def filter_records_existing(self, log: RecordLog) -> RecordLog:
         found_records: RecordLog = RecordLog()
         for m_key, records in log:
             if(self.check(m_key)):

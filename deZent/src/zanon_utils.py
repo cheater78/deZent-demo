@@ -1,20 +1,7 @@
-from scipy.stats import truncnorm
 import numpy as np
-import random
-import datetime
 
-from deZent.src.legacy.logging_utils import RecordLog
 from deZent.src.zanon.counting_data_structure.counting_data_structure import CntDataStructure
 from deZent.src.zanon.counting_data_structure.counting_bloom_filter import CBloomFilter
-
-from deZent.src.ami.smart_meter import SMID, MeasurementKey
-
-# https://stackoverflow.com/questions/36894191/how-to-get-a-normal-distribution-within-a-range-in-numpy
-def get_truncated_normal(mean = 0, sd = 1, low = 0, upp = 10): # type: ignore
-    tn = truncnorm(
-        (low - mean) / sd, (upp - mean) / sd, loc=mean, scale=sd)
-    return tn
-
 
 '''
     create count structure (e.g. CBF) for data collection
@@ -49,74 +36,6 @@ def create_cnt_structure(n_sm_conn: int, anon_cycles: int, struct_type: str) -> 
         case _:
             raise RuntimeError(f"CntDataStructure type {struct_type} is not supported!")
     return cnt_struct
-
-'''
-    delete measurements from timepoints older than delta_t 
-        update local record list to keep only valid data points 
-'''
-def apply_deltat_to_records(record_log: RecordLog, curr_time: datetime.datetime, dt: datetime.timedelta) -> RecordLog:
-    t_limit = curr_time - dt # t_limit = datetime <= curr_time = datetime delta_t = time_delta
-
-    l_del_rec: list[MeasurementKey] = []
-
-    # for each record get log entries
-    for record_val in record_log.log.keys():
-        l_del_sm: list[SMID] = []
-        for sm_id, log_entry in record_log.log[record_val].items():
-            if(log_entry.time < t_limit):
-                l_del_sm.append(sm_id)
-
-        # delete observations of SMs that are too old
-        for del_sm in l_del_sm:
-            del record_log.log[record_val][del_sm]
-            # no entries left for this record value
-            if(not record_log.log[record_val]):
-                l_del_rec.append(record_val)
-                
-    for del_rec in l_del_rec:           
-        del record_log.log[del_rec]
-
-    return record_log
-
-'''
-    publish tuples that have been successfully anonymized with z
-        the data_origin is either the central entity or a decentralized GW
-        the publication probability can be changed to provide certain deniability and provide more privacy
-        if the function is called on the central entity p_pub is always 100 
-'''
-def publish_anonyimzed_tuples(data_origin, cnt_struct: CntDataStructure, p_pub: int, curr_time: datetime.datetime) -> CntDataStructure:
-    l_curr_records = []
-    l_curr_records = data_origin.get_curr_records_for_publishing(cnt_struct, curr_time)
-
-    # key hashes of some of GW's records were found in cnt_struct
-    if(l_curr_records):
-        for rec2pub in l_curr_records:
-            # take publication responsibility with probability p_pub 
-            rnd = random.randint(0,100)
-            if(rnd <= p_pub):
-                rec_in_cnt_struct = check_cnt_struct(data_origin, cnt_struct, rec2pub)
-                if(rec_in_cnt_struct):
-                    # to publish: forward PubLogEntry to CE with value, timepoint, and sm_id for collection and further processing
-                    data_origin.publish_tuple(rec2pub)
-                    
-
-                    # update flag in record_log to indicate that the corresponding tuple has been published (rec2pub == PubLogEntry)
-                    data_origin.record_log.update_local_record_log(rec2pub)
-
-                    # central cnt_struct at CE
-                    if(data_origin.id == "CE"):
-                        cnt_struct = remove_rec_cnt(cnt_struct, rec2pub.key) 
-                    
-                    # stochastic cnt_struct at GW
-                    else:
-                        # remove element's hash from cnt_struct
-                        cnt_struct.remove(rec2pub.key) 
-
-                        # count structure is empty after publication -> not often the case due to older measurements within dt that are also counted
-                        if(cnt_struct.is_empty()):
-                            break
-    return cnt_struct
-
 
 def check_cnt_struct(data_origin, cs, rec) -> bool:
     valid_rec = False

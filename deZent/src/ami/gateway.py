@@ -1,9 +1,8 @@
 from datetime import datetime
 
-from deZent.src.node import NodeID
-from deZent.src.zanon.counting_data_structure.counting_data_structure import CntDataStructure
+from deZent.src.network.net_node import NetworkNodeID
 
-from deZent.src.ami.smart_meter_measurement import RecordLogEntry, RecordLog
+from deZent.src.ami.smart_meter_measurement import RecordLogEntry, RecordLog, PubLogEntry
 from deZent.src.ami.smart_meter import SMID, SmartMeter
 from deZent.src.ami.smart_meter_profile_distribution import SmartMeterProfileDistributionType, SmartMeterProfileDistribution
 from deZent.src.ami.gateway_profile import GatewayProfileType
@@ -19,7 +18,7 @@ def gw_create_sms(gw_id: GWID, sm_profile_type: SmartMeterProfileDistributionTyp
         sm_dict[sm_id] = SmartMeter.create_sample_sm_from_profile_distribution(gw_id, sm_id, sm_profile_distribution)
     return sm_dict
 
-GWID = NodeID
+GWID = NetworkNodeID
 class Gateway():
 
     def __init__(self,
@@ -52,4 +51,7 @@ class Gateway():
 
             # add measurement to log at GW
             self.record_log.add_record(sm_id, record)
+
+    def publish_record(self, pub_record: PubLogEntry) -> None:
+        pass # TODO
     

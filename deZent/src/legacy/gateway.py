@@ -8,7 +8,7 @@ from deZent.src.ami.smart_meter import SMID, SmartMeter, MeasurementKey
 from deZent.src.legacy.profile_distribution import ProfileDistribution
 
 from deZent.src.zanon.counting_data_structure.counting_data_structure import CntDataStructure
-from deZent.src.node import NodeID, Node
+from deZent.src.network.deZent_node import NodeID, Node
 GWID=NodeID
 CEHandle=NodeID # TODO: more a Handle than an ID -> NetAddr is needed
 
@@ -118,7 +118,7 @@ class Gateway():
     '''
     def get_curr_records_for_publishing(self, cnt_struct: CntDataStructure, curr_time: datetime.time) -> list[PubLogEntry]:
         # find out which of the records in my local log are in cnt_struc t, meaning they occurred at more than z individuals
-        existing_record_keys = cnt_struct.existing_records(list(self.record_log.log.keys()))
+        existing_record_keys = cnt_struct.filter_records_existing(list(self.record_log.log.keys()))
         pub_records: list[PubLogEntry] = []
         #print("__check__: existing records: ", existing_record_keys)
         # get those entries that are from the current round (timepoint) and could get published

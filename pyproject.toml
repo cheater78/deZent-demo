@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deZent-demo"
+version = "0.1.0"
+description = "A demo of the deZent algorithm."
+requires-python = ">=3.10"
+dependencies = [
+    "bitarray~=3.8.0",
+    "fnvhash~=0.2.1",
+    "numpy~=2.4.1",
+    "matplotlib~=3.10.8",
+    "mmh3~=5.2.0",
+    "pandas~=2.3.3",
+    "scipy~=1.17.0",
+    "simpy~=4.1.1",
+    "seaborn~=0.13.2",
+    # TODO: pytils
+]
+
+[tool.setuptools]
+package-dir = {"" = "deZent/src"}
+
+[tool.setuptools.packages.find]
+where = ["deZent/src"]
+
+[tool.setuptools.package-data]
+my_shared_lib = ["py.typed"]

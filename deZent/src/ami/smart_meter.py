@@ -1,13 +1,13 @@
 from __future__ import annotations
 from datetime import datetime
 
-from deZent.src.node import NodeID
+from deZent.src.network.net_node import NetworkNodeID
 from deZent.src.ami.smart_meter_measurement import MeasurementValue, RecordLogEntry
 from deZent.src.ami.smart_meter_profile import SmartMeterProfileType, SmartMeterProfile
 from deZent.src.ami.smart_meter_profile_distribution import SmartMeterProfileDistribution
 from gateway import GWID
 
-SMID = NodeID # NOTE: SMs could become nodes in the future
+SMID = NetworkNodeID
 class SmartMeter():
 
     @staticmethod

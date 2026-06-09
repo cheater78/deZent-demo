@@ -1,5 +1,5 @@
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Iterator
 
 from smart_meter_profile import SmartMeterProfileType
@@ -26,7 +26,7 @@ class RecordLog():
         self.log: RecordLogDict = {}
 
     def add_record(self, sm_id: SMID, record: RecordLogEntry) -> None:
-        m_key: MeasurementKey = RecordLog.map_measurement_to_key(record.orig_measurement)
+        m_key: MeasurementKey = RecordLog.__map_measurement_to_key__(record.orig_measurement)
 
         # measurement value has never been seen before -> create dictionary
         if not m_key in self.log.keys():
@@ -39,32 +39,61 @@ class RecordLog():
             self.log[m_key] = {}
         self.log[m_key] |= records
 
+    def remove_records_older_dt(self, curr_time: datetime, dt: timedelta) -> None:
+        t_limit: datetime = curr_time - dt
+
+        l_del_rec: list[MeasurementKey] = []
+        for m_key, m_dict in self:
+            l_del_sm: list[SMID] = []
+            for sm_id, record in m_dict.items():
+                if(record.time < t_limit):
+                    l_del_sm.append(sm_id)
+
+            # delete observations of SMs that are too old
+            for del_sm in l_del_sm:
+                del m_dict[del_sm]
+                # no entries left for this record value
+                if not m_dict:
+                    l_del_rec.append(m_key)
+                    
+        for del_rec in l_del_rec:           
+            del self.log[del_rec]
+
+    def get_current_unpublished_records(self, curr_time: datetime) -> PubLog:
+        curr_recs2pub: PubLog = PubLog()
+        for m_key, m_dict in self: # self.log.items(), but we have __iter__ alr
+            for sm_id, record in m_dict.items():
+                if record.time == curr_time and not record.is_published:
+                    pub_record = PubLogEntry(m_key, record.orig_measurement, record.time, sm_id, record.sm_type)
+                    curr_recs2pub.add_record(pub_record)
+        return curr_recs2pub
+
     '''
         update record that has been published and set flag to avoid publishing multiple times
-            pub_tuple == PubLogEntry
     '''
-    def update_local_record_log(self, pub_tuple):
-        is_published = True
-        self.log[pub_tuple.key][pub_tuple.id] = RecordLogEntry(pub_tuple.measurement, pub_tuple.sm_type, pub_tuple.time, is_published)
-        return self.log
-    
-    '''
-        print record log for debugging
-    '''
-    def print_record_log(self):
-        for i in self.log.keys():
-            for sm, log_entry in self.log[i].items():
-                print("__record log__: measurement_key: ", i, ", SM: ", sm, log_entry)
+    def update_record_published(self, pub_record: PubLogEntry) -> None:
+        self.log[pub_record.key][pub_record.id] = RecordLogEntry(pub_record.measurement, pub_record.sm_type, pub_record.time, is_pub = True)
+
+    def __bool__(self) -> bool:
+        return bool(self.log) # defined by "not empty"
 
     def __iter__(self) -> Iterator[tuple[MeasurementKey, RecordLogDictEntry]]:
         return iter(self.log.items())
 
+    def __str__(self) -> str:
+        debug_str: str = ""
+        for key, m_dict in self:
+            for sm_id, record in m_dict.items():
+                if debug_str:
+                    debug_str += "\n"
+                debug_str +=  f"__record_log__: measurement_key: {key}, SM: {sm_id}, {record}"
+        return debug_str
+
     '''
         numerical values are mapped to key values, basically value bins are used for measurement values
     '''
-    # TODO: possibly private? - MeasurementValue does alr uniquely id the key
     @staticmethod
-    def map_measurement_to_key(m: MeasurementValue) -> MeasurementKey:
+    def __map_measurement_to_key__(m: MeasurementValue) -> MeasurementKey:
         group_base: int = 25 # buckets in group_base*2^ceil_ld(m/group_base)
         n_buckets: int = 20
 
@@ -91,7 +120,6 @@ class RecordLog():
             return tmp_max
         return tmp_max << ((m - 1) // tmp_max).bit_length()
     
-
 class PubLogEntry():
     def __init__(self, key: MeasurementKey, orig_measurement: MeasurementValue, time: datetime, sm_id: SMID, sm_type: SmartMeterProfileType):
         self.key = key
@@ -108,7 +136,26 @@ class PubLog():
     def __init__(self):
         self.log = pd.DataFrame(columns = ["value", "time", "ID", "orig_measurement", "type"])
 
-    def add_new_tuple(self, pub_tuple: PubLogEntry):
+    def add_record(self, pub_tuple: PubLogEntry):
         new_record = pd.DataFrame({"value": [pub_tuple.key], "time": [pub_tuple.time], "ID": [pub_tuple.id], "orig_measurement": [pub_tuple.measurement], "type": [pub_tuple.sm_type]})
         self.log = pd.concat([self.log, new_record], ignore_index = True) # Appending new rows using concat()
+
+    def extend(self, pub_log: PubLog) -> None:
+        self.log = pd.concat([self.log, pub_log.log], ignore_index = True)
+
+    def __bool__(self) -> bool:
+        return not self.log.empty
+
+    def __iter__(self) -> Iterator[PubLogEntry]:
+        # NOTE: DataFrame / .csv has to have the exact same attribute order as PubLogEntry, 
+        # if not construct with explicit assignment!
+        return (PubLogEntry(*row) for row in self.log.itertuples(index=False, name=None))
+    
+    def __str__(self) -> str:
+        debug_str: str = ""
+        for pub_record in self:
+            if debug_str:
+                debug_str += "\n"
+            debug_str +=  f"__pub_log__: {pub_record}"
+        return debug_str
 
