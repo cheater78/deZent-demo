@@ -1,10 +1,10 @@
 from __future__ import annotations
 from datetime import datetime
 
-from deZent.src.network.net_node import NetworkNodeID
-from deZent.src.ami.smart_meter_measurement import MeasurementValue, RecordLogEntry
-from deZent.src.ami.smart_meter_profile import SmartMeterProfileType, SmartMeterProfile
-from deZent.src.ami.smart_meter_profile_distribution import SmartMeterProfileDistribution
+from deZent_demo.network.net_node import NetworkNodeID
+from deZent_demo.ami.smart_meter_measurement import MeasurementValue, RecordLogEntry
+from deZent_demo.ami.smart_meter_profile import SmartMeterProfileType, SmartMeterProfile
+from deZent_demo.ami.smart_meter_profile_distribution import SmartMeterProfileDistribution
 from gateway import GWID
 
 SMID = NetworkNodeID

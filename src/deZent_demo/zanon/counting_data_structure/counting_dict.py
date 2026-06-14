@@ -1,5 +1,5 @@
-from deZent.src.ami.smart_meter_measurement import MeasurementKey
-from deZent.src.zanon.counting_data_structure.counting_data_structure import CntDataStructure
+from deZent_demo.ami.smart_meter_measurement import MeasurementKey
+from deZent_demo.zanon.counting_data_structure.counting_data_structure import CntDataStructure
 
 # TODO: not implemented
 class CDict(CntDataStructure):

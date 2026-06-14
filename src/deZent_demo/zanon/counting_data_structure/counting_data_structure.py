@@ -1,7 +1,7 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
 
-from deZent.src.ami.smart_meter_measurement import MeasurementKey, RecordLog
+from deZent_demo.ami.smart_meter_measurement import MeasurementKey, RecordLog
 
 # abstract class to force sub classes to implement methods
 class CntDataStructure(ABC):

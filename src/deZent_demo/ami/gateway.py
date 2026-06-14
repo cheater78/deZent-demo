@@ -1,12 +1,12 @@
 from datetime import datetime
 
-from deZent.src.network.net_node import NetworkNodeID
+from deZent_demo.network.net_node import NetworkNode, NetworkNodeID, NetworkNodeMessageCB, NetAddr
 
-from deZent.src.ami.smart_meter_measurement import RecordLogEntry, RecordLog, PubLogEntry
-from deZent.src.ami.smart_meter import SMID, SmartMeter
-from deZent.src.ami.smart_meter_profile_distribution import SmartMeterProfileDistributionType, SmartMeterProfileDistribution
-from deZent.src.ami.gateway_profile import GatewayProfileType
-from deZent.src.ami.central_entity import CEID
+from deZent_demo.ami.smart_meter_measurement import RecordLogEntry, RecordLog, PubLogEntry
+from deZent_demo.ami.smart_meter import SMID, SmartMeter
+from deZent_demo.ami.smart_meter_profile_distribution import SmartMeterProfileDistributionType, SmartMeterProfileDistribution
+from deZent_demo.ami.gateway_profile import GatewayProfileType
+from deZent_demo.ami.central_entity import CEID
 
 # TODO: possibly move to network, since SMs could be a separate instance
 def gw_create_sms(gw_id: GWID, sm_profile_type: SmartMeterProfileDistributionType, n_sm_conn: int) -> dict[SMID, SmartMeter]:

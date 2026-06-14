@@ -16,15 +16,14 @@ dependencies = [
     "pandas~=2.3.3",
     "scipy~=1.17.0",
     "simpy~=4.1.1",
-    "seaborn~=0.13.2",
-    # TODO: pytils
+    "seaborn~=0.13.2"
 ]
 
 [tool.setuptools]
-package-dir = {"" = "deZent/src"}
+package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
-where = ["deZent/src"]
+where = ["src"]
 
 [tool.setuptools.package-data]
 my_shared_lib = ["py.typed"]

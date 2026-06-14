@@ -1,7 +1,10 @@
 import pandas as pd
 
-from deZent.src.legacy.logging_utils import RecordLog, PubLog, PubLogEntry, SimuLog
+from deZent_demo.network.net_node import NetworkNodeID
 
+from deZent_demo.legacy.logging_utils import RecordLog, PubLog, PubLogEntry, SimuLog
+
+CEID = NetworkNodeID
 class CentralEntity():
     def __init__(self):
         self.clock = 0

@@ -6,11 +6,43 @@
 import mmh3
 from bitarray import bitarray
 from bitarray.util import ba2int,int2ba
+import numpy as np
 
-from deZent.src.ami.smart_meter_measurement import MeasurementKey
-from deZent.src.zanon.counting_data_structure.counting_data_structure import CntDataStructure
+from deZent_demo.ami.smart_meter_measurement import MeasurementKey
+from deZent_demo.zanon.counting_data_structure.counting_data_structure import CntDataStructure
 
 class CBloomFilter(CntDataStructure):
+
+	'''
+		create CBF for deZent data collection
+	'''
+	@staticmethod
+	def create(n_sm_conn: int, anon_cycles: int) -> CBloomFilter:
+		# n: number of expected items -> estimate number of items that occur within delta_t at all the gateways
+		# n = no. of items = #(GWs) * #(SM p. GW) * (dt/f)
+		# NOTE: this creates a varying n depending on the current round coordinator since n_sm_conn vaires btw GWs
+		# This is deliberately accepted in the expectation that collisions with underestimated n 
+		#   will balance out over time due to overestimated Bloom filters with other round coordinating GWs
+		n = 10 * n_sm_conn * anon_cycles  
+
+		# N: size of each counter in the bucket
+		# 2^N occurrences can be counted
+		N = 20 #10  
+
+		# m: total number of the buckets in the filter
+		# this can be estimated by setting desired false positive rate P
+		# m = (-n*ln(P))/(ln(2)^2)
+		P = 0.05
+		m_est = int( (-n*np.log(P)) / (np.log(2)**2) )
+		m = m_est #min(m_est, 1000) # cut max number of buckets # TODO
+
+		# k: number of hash functions
+		# K = (m/n) * ln(2)
+		k_est = int( (m/n) * np.log(2) )
+		k = max(1, k_est)
+		k = min(k, 6) # use between 1 and 6 hash functions
+		return CBloomFilter(n, N, m, k)
+
 
 	def __init__(self, n: int, counter_size: int, bucket_size: int, no_hashfn: int):
 		self.n: int = n

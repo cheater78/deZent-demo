@@ -1,55 +1,50 @@
 import asyncio
 from asyncio import Server, StreamReader, StreamWriter
-from dataclasses import dataclass
 import ssl
+from dataclasses import dataclass
 from typing import Callable
 
-from deZent.src.utils.sys_utils import run
-from deZent.src.utils.async_thread import AsyncThread
+from deZent_demo.utils.async_thread import AsyncThread
+
+from deZent_demo.network.dhcp import DHCPClient
+from deZent_demo.network.pki import Certificate
 
 NetworkMessage = bytes
 
 IPAddr = str
-default_port: int = 9000
 @dataclass(frozen=True) # immutable -> hashable
 class NetAddr():
     ip: IPAddr
-    port: int = default_port
+    port: int
 
 NetworkMessageCB = Callable[[NetAddr, NetworkMessage], None]
 NetworkStateChangeCB = Callable[[NetAddr], None]
 
 class NetworkStack(AsyncThread):
 
-    @staticmethod
-    def create_cert(key: str, cert: str, domain:str, ip_addr: IPAddr, ttl_days: int = 365) -> None:
-        width: int = 2048
-
-        run([
-            "openssl", "req", "-x509", "-newkey", f"rsa:{width}", "-nodes",
-            "-keyout", f"{key}",
-            "-out", f"{cert}",
-            "-days", f"{ttl_days}",
-            "-subj", f"/CN={domain}",
-            "-addext", f"subjectAltName=DNS:{domain},IP: {ip_addr}"
-        ])
-
     def __init__(self,
-                 host: NetAddr,
+                 net_if: str,
+                 port: int,
                  msg_cb: NetworkMessageCB,
+                 connection_opened_cb: NetworkStateChangeCB,
                  connection_closed_cb: NetworkStateChangeCB,
-                 cert: str = "cert.pem",
-                 key: str = "key.pem"):
-        self._addr_ = host
+                 certificate_name: str):
+        self.dhclient: DHCPClient = DHCPClient(net_if)
+        self._addr_: NetAddr = NetAddr(self.dhclient.get_ip(), port)
+
         self._msg_cb_: NetworkMessageCB = msg_cb
+        self._connection_opened_cb_ = connection_opened_cb
         self._connection_closed_cb_ = connection_closed_cb
+
+        self.certificate: Certificate = Certificate(certificate_name, self._addr_.ip)
+        self.certificate.create()
 
         self._server_: Server
         self._server_ssl_ctx_ = ssl.create_default_context(purpose = ssl.Purpose.CLIENT_AUTH)
-        self._server_ssl_ctx_.load_cert_chain(certfile = cert, keyfile = key)
+        self._server_ssl_ctx_.load_cert_chain(certfile = self.certificate.cert_file, keyfile = self.certificate.key_file)
 
         self._client_ssl_ctx_ = ssl.create_default_context(purpose = ssl.Purpose.SERVER_AUTH)
-        self._client_ssl_ctx_.check_hostname = False
+        self._client_ssl_ctx_.check_hostname = False # IP address only
         self._client_ssl_ctx_.verify_mode = ssl.CERT_NONE  # TODO: for testing only
 
         self._connections_: dict[NetAddr, tuple[StreamReader, StreamWriter]] = { }
@@ -63,6 +58,8 @@ class NetworkStack(AsyncThread):
         return list(self._connections_.keys())
 
     def write(self, addr: NetAddr, msg: NetworkMessage) -> None:
+        if not addr in self.connections():
+            self.connect(addr)
         self.dispatch_sync(self.__connection_write__(addr, msg))
 
     async def __run__(self) -> None:
@@ -104,6 +101,7 @@ class NetworkStack(AsyncThread):
         self._connections_[addr] = (reader, writer)
         print(f"[NetStack] Open connection to: {addr}")
         self.event_loop.create_task(self.__listen_connection__(addr))
+        self._connection_opened_cb_(addr)
     
     async def __connection_close_cb__(self, addr: NetAddr) -> None:
         self._connection_closed_cb_(addr)
