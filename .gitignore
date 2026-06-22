@@ -1,4 +1,8 @@
+.vscode
 .venv
 *__pycache__*
 *.egg-info
 *.pem
+*.crt
+*.key
+cert
