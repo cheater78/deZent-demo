@@ -1,12 +1,12 @@
 import random
 from datetime import datetime, timedelta
 
-from deZent_demo.ami.gateway import Gateway, GWID
+from deZent_demo.ami.gateway import Gateway
 from deZent_demo.ami.smart_meter_profile_distribution import SmartMeterProfileDistributionType
-from deZent_demo.ami.smart_meter_measurement import RecordLog, PubLog
+from deZent_demo.ami.measurement_log import RecordLog, PubLog
 from deZent_demo.ami.gateway_profile import GatewayProfileType
-from deZent_demo.ami.central_entity import CEID
 
+from deZent_demo.network.address import NetworkNodeID
 from deZent_demo.network.deZent_node import deZentNetworkNode
 
 from deZent_demo.zanon.counting_data_structure.counting_data_structure import CntDataStructure
@@ -16,8 +16,8 @@ from deZent_demo.zanon.counting_data_structure.counting_bloom_filter import CBlo
 class deZentGateway(Gateway):
     
     def __init__(self,
-                 ce_id: CEID,
-                 gw_id: GWID,
+                 ce_id: NetworkNodeID,
+                 gw_id: NetworkNodeID,
                  dt_minutes: int,
                  z: int,
                  gw_profile_type: GatewayProfileType = GatewayProfileType.STANDARD,

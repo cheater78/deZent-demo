@@ -1,6 +1,6 @@
 from deZent_demo.network.net_node import NetworkNodeID, NetworkNodeIDAddr
 from deZent_demo.zanon.counting_data_structure.counting_data_structure import CntDataStructure
-from deZent_demo.ami.smart_meter_measurement import PubLog
+from deZent_demo.ami.measurement_log import PubLog
 
 from deZent_demo.utils.pkgable_struct import *
 

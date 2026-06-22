@@ -1,6 +1,6 @@
 from deZent_demo.network.net_node import NetworkNodeID, NetworkNodeMessageCB, NetAddr
 from deZent_demo.network.p2p_node import P2PNode
-from deZent_demo.ami.smart_meter_measurement import PubLogEntry
+from deZent_demo.ami.measurement_log import PubLogEntry
 from deZent_demo.zanon.counting_data_structure.counting_data_structure import CntDataStructure
 from deZent_demo.network.protocol import *
 

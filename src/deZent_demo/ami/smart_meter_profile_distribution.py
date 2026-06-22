@@ -4,7 +4,7 @@ from enum import StrEnum
 from abc import ABC
 from typing import Any, ClassVar
 
-from smart_meter_profile import SmartMeterProfileType
+from deZent_demo.ami.smart_meter_profile import SmartMeterProfileType
 
 class SmartMeterProfileDistributionType(StrEnum):
     TK = "tk"

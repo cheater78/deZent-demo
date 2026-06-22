@@ -6,7 +6,7 @@ from enum import StrEnum
 from abc import ABC, abstractmethod
 from typing import Any, ClassVar, cast
 
-from smart_meter_measurement import MeasurementValue
+from deZent_demo.ami.measurement import MeasurementValue
 
 profile_data_path: str = "../../data/consumption_data/"
 comsumption_p_a_scale_factor: float = (1 / 1000)

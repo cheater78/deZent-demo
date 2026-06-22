@@ -1,22 +1,15 @@
 import asyncio
 from asyncio import Server, StreamReader, StreamWriter
 import ssl
-from dataclasses import dataclass
 from typing import Callable
 
 from deZent_demo.utils.async_thread import AsyncThread
 
+from deZent_demo.network.address import NetAddr
 from deZent_demo.network.dhcp import DHCPClient
 from deZent_demo.network.pki import Certificate
 
 NetworkMessage = bytes
-
-IPAddr = str
-@dataclass(frozen=True) # immutable -> hashable
-class NetAddr():
-    ip: IPAddr
-    port: int
-
 NetworkMessageCB = Callable[[NetAddr, NetworkMessage], None]
 NetworkStateChangeCB = Callable[[NetAddr], None]
 
@@ -37,7 +30,7 @@ class NetworkStack(AsyncThread):
         self._connection_closed_cb_ = connection_closed_cb
 
         self.certificate: Certificate = Certificate(certificate_name, self._addr_.ip)
-        self.certificate.create()
+        #self.certificate.create()
 
         self._server_: Server
         self._server_ssl_ctx_ = ssl.create_default_context(purpose = ssl.Purpose.CLIENT_AUTH)

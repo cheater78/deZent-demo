@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 import argparse
 import sys
-from time import sleep
 from deZent_demo.network.vswitch import VSwitch
-from deZent_demo.network.net_node import NetworkNode, NetworkNodeID, Message
-from deZent_demo.network.dhcp import DHCPServer
+from deZent_demo.network.dhcp import DHCPServer, DHCPClient
+from deZent_demo.network.pki import CertServer, CertClient
 from deZent_demo.utils.sys import run_in_term, keepalive
+
+from deZent_demo.ui.window import *
 
 def main():
     parser = argparse.ArgumentParser()
@@ -29,16 +30,16 @@ def main():
             print("Attaching to VSwitch...")
             vnet = VSwitch()
             vnet.attach_cable(net_if)
-        
-        def on_msg(sender: NetworkNodeID, msg: Message) -> None:
-            print(f"Message from {sender}: {msg}")
-        cert_name: str = net_if
-        node: NetworkNode = NetworkNode(net_if, on_msg, cert_name)
+
+            dhcl = DHCPClient(net_if)
 
         try:
-            while True:
-                sleep(1)
-                node.write(peer, f"Hello from {net_if}".encode())
+            cert_cl = CertClient(net_if, input("Root Fingerprint>"))
+            cert_cl.bootstrap()
+            cert_cl.enroll()
+            cert_cl.renew()
+
+            keepalive()
         except KeyboardInterrupt:
             pass
         except:
@@ -50,9 +51,12 @@ def main():
 
         net_if: str = args.netif
 
-        dhcp_server = DHCPServer(net_interface=net_if) # TODO: pull out netns logic
+        dhcp_server = DHCPServer(net_interface=net_if)
         try:
             dhcp_server.open()
+
+            ca_server = CertServer()
+            ca_server.start()
             
             # TODO: run net op here
             # CA, P2P bootstrap node
@@ -73,21 +77,28 @@ def main():
         # main entry point -> start ce and gws
         try:
             vnet.open()
+
+            netns_prefix: list[str] = ["ip", "netns", "exec", f"{vnet.net_ns}"]
+
             # start net op
             op_if: str = vnet.bridge
-            # TODO: run in netns if virtual
-            run_in_term([sys.executable, "-m", "deZent_demo", "--virtual", "--op", op_if])
+            #run_in_term(
+            #    ([] if not use_vnet else netns_prefix) +
+            #    [sys.executable, "-m", "deZent_demo", "--virtual", "--op", op_if])
 
             # start ce
             ce_if: str = f"deZent-ce"
-            run_in_term([sys.executable, "-m", "deZent_demo", "--virtual", "--ce", ce_if])
+            #run_in_term([sys.executable, "-m", "deZent_demo", "--virtual", "--ce", ce_if])
 
             # start gws
             n_gws: int = 2
-            for i_gw in range(n_gws):
-                i_gw_if: str = f"deZent-gw-{i_gw}"
-                run_in_term([sys.executable, "-m", "deZent_demo", "--virtual", "--gw", i_gw_if])
-            keepalive() # TODO: run net op here            
+            #for i_gw in range(n_gws):
+            #    i_gw_if: str = f"deZent-gw-{i_gw}"
+            #    run_in_term([sys.executable, "-m", "deZent_demo", "--virtual", "--gw", i_gw_if])
+
+            MainWindow.run()
+
+            # keepalive()
         except KeyboardInterrupt:
             pass
         except:

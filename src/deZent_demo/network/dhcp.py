@@ -41,9 +41,6 @@ class DHCPServer():
     def close(self):
         self.__stop_dhcp__()
 
-    def __exec_ns__(self, cmd: list[str], check: bool = True) -> list[str]:
-        return run(["ip", "netns", "exec", f"{self.net_name}"] + cmd, check)
-
     def __configure_dhcp__(self):
         dnsmasq_config: str = f"""
             interface={self.net_if}
@@ -61,13 +58,13 @@ class DHCPServer():
         with open(self.dnsmasq_conf_file, "w") as f:
             f.write(dnsmasq_config)
 
-        self.__exec_ns__(["ip", "address", "add", f"{self.ip_addr}/{self.net_pre_len}", "dev", f"{self.net_if}"])
+        run(["ip", "address", "add", f"{self.ip_addr}/{self.net_pre_len}", "dev", f"{self.net_if}"])
     
     def __start_dhcp__(self):
         sys_install(dhcp_server_dependecies)
         self.__configure_dhcp__()
         print(f"Running dhcp on {self.net_if}.")
-        self.__exec_ns__([ "dnsmasq", f"--conf-file={self.dnsmasq_conf_file}" ]) # "--keep-in-foreground",
+        run([ "dnsmasq", f"--conf-file={self.dnsmasq_conf_file}" ]) # "--keep-in-foreground",
 
     def __stop_dhcp__(self):
         try:

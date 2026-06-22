@@ -1,0 +1,2 @@
+MeasurementKey=int
+MeasurementValue=int

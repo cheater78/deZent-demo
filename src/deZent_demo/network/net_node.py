@@ -1,19 +1,13 @@
-from dataclasses import dataclass
 from typing import cast, Callable
 
 from deZent_demo.utils import cbor_codec
 
-from deZent_demo.network.net_stack import NetworkStack, NetAddr, NetworkMessage
+from deZent_demo.network.address import *
+from deZent_demo.network.net_stack import NetworkStack, NetworkMessage
 from deZent_demo.network.protocol import *
 
 NetworkNodeMessage = Message
-NetworkNodeID = int
 NetworkNodeMessageCB = Callable[[NetworkNodeID, NetworkNodeMessage], None]
-
-@dataclass(frozen=True)
-class NetworkNodeIDAddr:
-    id: NetworkNodeID
-    addr: NetAddr
 
 default_node_port: int = 9000
 

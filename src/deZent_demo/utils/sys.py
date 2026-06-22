@@ -1,23 +1,31 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 import platform
 import os
+import pty
+import selectors
 import re
 from pathlib import Path
 import subprocess
 from time import sleep
+import shutil
+from dataclasses import dataclass
+from typing import Callable, Sequence
 
 IPAddr = str
 
-def run_unsafe(cmd: list[str], check: bool = True, debug: bool = True) -> list[str] | None:
+def run_unsafe(cmd: list[str], check: bool = True, debug: bool = True, env: dict[str, str] = {}, input: str = "") -> list[str] | None:
     if debug:
         print(">", " ".join(cmd))
-    result = subprocess.run(cmd, check=check, capture_output=True, text=True)
+    curr_env: dict[str, str] = os.environ.copy()
+    curr_env |= env
+    result = subprocess.run(cmd, check=check, input=input, capture_output=True, text=True, env=curr_env)
     if result.returncode != 0:
         return None
     return [str(line) for line in result.stdout.splitlines()]
 
-def run(cmd: list[str], check: bool = True, debug: bool = True) -> list[str]:
-    result: list[str] | None = run_unsafe(cmd, check, debug)
+def run(cmd: list[str], check: bool = True, debug: bool = True, env: dict[str, str] = {}, input: str = "") -> list[str]:
+    result: list[str] | None = run_unsafe(cmd, check, debug, env, input)
     if result is None:
         raise RuntimeError(f"Failed to run> {" ".join(cmd)}: Returned non zero exit code!")
     return result
@@ -171,9 +179,98 @@ def sys_if_ip_addr(ifname: str) -> IPAddr | None:
 def sys_file_exists(file: str) -> bool:
     return Path(file).is_file()
 
+def sys_rmdir_r(path: Path) -> bool:
+    if path.exists():
+        shutil.rmtree(path)
+        return True
+    return False
+
 def keepalive() -> None:
     try:
         while True:
             sleep(1)
     except KeyboardInterrupt:
         pass
+
+
+
+@dataclass(frozen=True)
+class ExpectRule:
+    pattern: str
+    action: Callable[[PtyProcess], None]
+
+class PtyProcess:
+    def __init__(self, cmd: Sequence[str], env: dict[str, str] = {}) -> None:
+        self.cmd = cmd
+        self.master_fd: int | None = None
+        self.slave_fd: int | None = None
+        self.proc: subprocess.Popen[bytes] | None = None
+        self.env = env
+
+    def start(self) -> None:
+        master_fd, slave_fd = pty.openpty()
+        self.master_fd = master_fd
+        self.slave_fd = slave_fd
+
+        env = os.environ.copy()
+        env |= self.env
+
+        self.proc = subprocess.Popen(
+            self.cmd,
+            stdin=slave_fd,
+            stdout=slave_fd,
+            stderr=slave_fd,
+            close_fds=True,
+            env=env
+        )
+
+        os.close(slave_fd)
+
+    def write(self, data: str) -> None:
+        if self.master_fd is None:
+            raise RuntimeError("PTY not started")
+        os.write(self.master_fd, data.encode())
+
+    def read_loop(
+        self,
+        on_output: Callable[[str], None] | None = None,
+        rules: list[ExpectRule] | None = None
+    ) -> int:
+        if self.master_fd is None or self.proc is None:
+            raise RuntimeError("PTY not started")
+
+        sel = selectors.DefaultSelector()
+        sel.register(self.master_fd, selectors.EVENT_READ)
+
+        buffer = ""
+
+        while True:
+            if self.proc.poll() is not None:
+                break
+
+            events = sel.select(timeout=0.1)
+
+            for _, _ in events:
+                data = os.read(self.master_fd, 1024).decode(errors="ignore")
+                if not data:
+                    continue
+                if on_output:
+                    on_output(data)
+
+                buffer += data
+                
+                if not rules:
+                    continue
+                for rule in rules:
+                    if rule.pattern.lower() in buffer.lower():
+                        rule.action(self)
+                        buffer = ""
+
+        return self.proc.wait()
+
+    def close(self) -> None:
+        if self.master_fd is not None:
+            try:
+                os.close(self.master_fd)
+            except OSError:
+                pass

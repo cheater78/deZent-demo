@@ -2,11 +2,9 @@ import pandas as pd
 from datetime import datetime, timedelta
 from typing import Iterator
 
-from smart_meter_profile import SmartMeterProfileType
-from smart_meter import SMID
-
-MeasurementKey=int
-MeasurementValue=int
+from deZent_demo.ami.measurement import MeasurementValue, MeasurementKey
+from deZent_demo.network.address import NetworkNodeID
+from deZent_demo.ami.smart_meter_profile import SmartMeterProfileType
 
 class RecordLogEntry():
     def __init__(self, m: MeasurementValue, sm_type: SmartMeterProfileType, time: datetime, is_pub: bool):
@@ -19,13 +17,13 @@ class RecordLogEntry():
         return ("orig value: " + str(self.orig_measurement) + " time: " + str(self.time) + 
                 ", is_published " + str(self.is_published) )
 
-RecordLogDictEntry = dict[SMID, RecordLogEntry]
+RecordLogDictEntry = dict[NetworkNodeID, RecordLogEntry]
 RecordLogDict = dict[MeasurementKey, RecordLogDictEntry]
 class RecordLog():
     def __init__(self):
         self.log: RecordLogDict = {}
 
-    def add_record(self, sm_id: SMID, record: RecordLogEntry) -> None:
+    def add_record(self, sm_id: NetworkNodeID, record: RecordLogEntry) -> None:
         m_key: MeasurementKey = RecordLog.__map_measurement_to_key__(record.orig_measurement)
 
         # measurement value has never been seen before -> create dictionary
@@ -44,7 +42,7 @@ class RecordLog():
 
         l_del_rec: list[MeasurementKey] = []
         for m_key, m_dict in self:
-            l_del_sm: list[SMID] = []
+            l_del_sm: list[NetworkNodeID] = []
             for sm_id, record in m_dict.items():
                 if(record.time < t_limit):
                     l_del_sm.append(sm_id)
@@ -121,7 +119,7 @@ class RecordLog():
         return tmp_max << ((m - 1) // tmp_max).bit_length()
     
 class PubLogEntry():
-    def __init__(self, key: MeasurementKey, orig_measurement: MeasurementValue, time: datetime, sm_id: SMID, sm_type: SmartMeterProfileType):
+    def __init__(self, key: MeasurementKey, orig_measurement: MeasurementValue, time: datetime, sm_id: NetworkNodeID, sm_type: SmartMeterProfileType):
         self.key = key
         self.time = time
         self.id = sm_id
@@ -158,4 +156,3 @@ class PubLog():
                 debug_str += "\n"
             debug_str +=  f"__pub_log__: {pub_record}"
         return debug_str
-
