@@ -103,7 +103,7 @@ class DHCPClient():
                  net_interface: str = "eth0") -> None:
         sys_install(network_client_dependecies)
         self.net_if = net_interface
-        self.__request_dhcp_lease__()
+        self.get_ip() # request lease if no ip
 
     def get_ip(self) -> IPAddr:
         if not sys_if_ip_addr(self.net_if):

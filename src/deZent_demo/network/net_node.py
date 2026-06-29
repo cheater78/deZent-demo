@@ -1,3 +1,5 @@
+from abc import ABC, abstractmethod
+import asyncio
 from typing import cast, Callable
 
 from deZent_demo.utils import cbor_codec
@@ -5,13 +7,38 @@ from deZent_demo.utils import cbor_codec
 from deZent_demo.network.address import *
 from deZent_demo.network.net_stack import NetworkStack, NetworkMessage
 from deZent_demo.network.protocol import *
+from deZent_demo.utils.async_thread import AsyncThread
+
+from deZent_demo.network.net_op import *
 
 NetworkNodeMessage = Message
 NetworkNodeMessageCB = Callable[[NetworkNodeID, NetworkNodeMessage], None]
 
 default_node_port: int = 9000
 
-class NetworkNode():
+class AbstractNetworkNode(ABC):
+    """
+    AbstractNetworkNode that ensures writing and reading via cb of NetworkNodeMessages
+    """
+
+    def __init__(self,
+                 msg_cb: NetworkNodeMessageCB,
+                 node_id: NetworkNodeID | None = None,) -> None:
+        self.node_id: NetworkNodeID = node_id if node_id else create_network_node_id()
+        self.msg_cb: NetworkNodeMessageCB = msg_cb
+
+    @abstractmethod
+    def known_peers(self) -> list[NetworkNodeID]:
+        pass
+
+    @abstractmethod
+    def write(self, receiver: NetworkNodeID, msg: NetworkNodeMessage) -> None:
+        pass
+
+    def id(self) -> NetworkNodeID:
+        return self.node_id
+
+class NetworkNode(AbstractNetworkNode):
     """
     NetworkNode abstracts a NetworkStack to use NetworkNodeIDs as communication handles,
     as well as provides NetworkNodeMessage communication
@@ -21,7 +48,8 @@ class NetworkNode():
                  net_if: str,
                  msg_cb: NetworkNodeMessageCB,
                  certificate_name: str,
-                 port: int = default_node_port):
+                 port: int = default_node_port,
+                 node_id: NetworkNodeID | None = None,):
 
         self.net_stack = NetworkStack(
             net_if = net_if,
@@ -32,9 +60,12 @@ class NetworkNode():
             certificate_name = certificate_name
         )
 
-        self.node_id: NetworkNodeID
-        self.msg_cb: NetworkNodeMessageCB = msg_cb
         self._known_peers_: dict[NetworkNodeID, NetAddr] = { }
+
+        super().__init__(
+            msg_cb = msg_cb,
+            node_id = node_id
+        )
 
     def known_peers(self) -> list[NetworkNodeID]:
         return list(self._known_peers_.keys())
@@ -79,3 +110,55 @@ class NetworkNode():
             if net_addr == addr:
                 return node_id
         return None
+
+class VirtualNetwork(AsyncThread):
+
+    @dataclass(frozen=True)
+    class MessageTask:
+        sender: NetworkNodeID
+        receiver: NetworkNodeID
+        msg: NetworkNodeMessage
+
+    def __init__(self, auto_start: bool = True) -> None:
+        self.nodes: dict[NetworkNodeID, VirtualNetworkNode] = { }
+        self.message_queue: asyncio.Queue[VirtualNetwork.MessageTask] = asyncio.Queue[VirtualNetwork.MessageTask]()
+
+        super().__init__(auto_start)
+    
+    def add_node(self, node: VirtualNetworkNode) -> None:
+        self.nodes[node.id()] = node
+
+    def write_message(self, sender: NetworkNodeID, receiver: NetworkNodeID, msg: NetworkNodeMessage) -> None:
+        task = VirtualNetwork.MessageTask(sender, receiver, msg)
+        self.message_queue.put_nowait(task)
+
+    async def __run__(self) -> None:
+        while True:
+            task = await self.message_queue.get()
+            receiver = self.nodes.get(task.receiver)
+            if not receiver:
+                raise RuntimeError(f"VirtualNetwork: Task receiver: {task.receiver} is unknown!")
+            receiver.msg_cb(task.sender, task.msg)
+
+class VirtualNetworkNode(AbstractNetworkNode):
+
+    def __init__(self,
+                 network: VirtualNetwork,
+                 msg_cb: NetworkNodeMessageCB,
+                 node_id: NetworkNodeID | None = None,):
+        
+        super().__init__(
+            msg_cb = msg_cb,
+            node_id = node_id
+        )
+
+        self.network: VirtualNetwork = network
+        self.network.add_node(self)
+
+    def known_peers(self) -> list[NetworkNodeID]:
+        return list(self.network.nodes.keys())
+    
+    def write(self, receiver: NetworkNodeID, msg: NetworkNodeMessage) -> None:
+        self.network.write_message(self.id(), receiver, msg)
+
+    

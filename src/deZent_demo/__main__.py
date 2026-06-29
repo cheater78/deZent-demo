@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 import argparse
-import sys
+from deZent_demo.network.net_node import VirtualNetwork, VirtualNetworkNode
 from deZent_demo.network.vswitch import VSwitch
 from deZent_demo.network.dhcp import DHCPServer, DHCPClient
-from deZent_demo.network.pki import CertServer, CertClient
 from deZent_demo.utils.sys import run_in_term, keepalive
 
-from deZent_demo.ui.window import *
+from deZent_demo.ui.demo_app import *
 
 def main():
     parser = argparse.ArgumentParser()
@@ -34,11 +33,7 @@ def main():
             dhcl = DHCPClient(net_if)
 
         try:
-            cert_cl = CertClient(net_if, input("Root Fingerprint>"))
-            cert_cl.bootstrap()
-            cert_cl.enroll()
-            cert_cl.renew()
-
+            
             keepalive()
         except KeyboardInterrupt:
             pass
@@ -55,11 +50,6 @@ def main():
         try:
             dhcp_server.open()
 
-            ca_server = CertServer()
-            ca_server.start()
-            
-            # TODO: run net op here
-            # CA, P2P bootstrap node
             keepalive() 
         except KeyboardInterrupt:
             pass
@@ -70,24 +60,21 @@ def main():
     else:
         if not use_vnet:
             raise RuntimeError(f"Cannot run dev env without --virtual!")
-        # L2
-        print("Creating VSwitch...")
-        vnet = VSwitch() # TODO: VSwitch.run?
 
         # main entry point -> start ce and gws
         try:
-            vnet.open()
+            vnet = VirtualNetwork()
 
-            netns_prefix: list[str] = ["ip", "netns", "exec", f"{vnet.net_ns}"]
+            # netns_prefix: list[str] = ["ip", "netns", "exec", f"{vnet.net_ns}"]
 
             # start net op
-            op_if: str = vnet.bridge
+            # op_if: str = vnet.bridge
             #run_in_term(
             #    ([] if not use_vnet else netns_prefix) +
             #    [sys.executable, "-m", "deZent_demo", "--virtual", "--op", op_if])
 
             # start ce
-            ce_if: str = f"deZent-ce"
+            # ce_if: str = f"deZent-ce"
             #run_in_term([sys.executable, "-m", "deZent_demo", "--virtual", "--ce", ce_if])
 
             # start gws
@@ -96,7 +83,13 @@ def main():
             #    i_gw_if: str = f"deZent-gw-{i_gw}"
             #    run_in_term([sys.executable, "-m", "deZent_demo", "--virtual", "--gw", i_gw_if])
 
-            MainWindow.run()
+            for i_gw in range(n_gws):
+                # gw_net_node = VirtualNetworkNode(vnet, , i_gw)
+                pass
+
+
+            app = DemoApp()
+            app.run()
 
             # keepalive()
         except KeyboardInterrupt:
@@ -104,7 +97,8 @@ def main():
         except:
             raise
         finally:
-            vnet.close()
+            # vnet.close()
+            pass
         return 0
 
 if __name__ == "__main__":

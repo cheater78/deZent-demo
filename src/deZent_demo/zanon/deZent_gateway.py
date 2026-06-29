@@ -3,11 +3,11 @@ from datetime import datetime, timedelta
 
 from deZent_demo.ami.gateway import Gateway
 from deZent_demo.ami.smart_meter_profile_distribution import SmartMeterProfileDistributionType
-from deZent_demo.ami.measurement_log import RecordLog, PubLog
+from deZent_demo.ami.measurement_log import RecordLog, PubLog, PubLogEntry
 from deZent_demo.ami.gateway_profile import GatewayProfileType
 
 from deZent_demo.network.address import NetworkNodeID
-from deZent_demo.network.deZent_node import deZentNetworkNode
+from deZent_demo.network.protocol import *
 
 from deZent_demo.zanon.counting_data_structure.counting_data_structure import CntDataStructure
 from deZent_demo.zanon.counting_data_structure.counting_bloom_filter import CBloomFilter
@@ -39,6 +39,9 @@ class deZentGateway(Gateway):
         self.z: int = z
         self.measurement_frequency = timedelta(minutes=15)
         self.n_cycles_for_anon: int = int(max(1, self.delta_t.seconds/self.measurement_frequency.seconds))
+        
+        self.prev: NetworkNodeID
+        self.next: NetworkNodeID
 
     def promote_coord(self) -> None:
         self.coord = True
@@ -175,3 +178,17 @@ class deZentGateway(Gateway):
 
     def __get_current_time__(self) -> datetime:
         return datetime.now()
+    
+    def send_collection_to_next(self, cnt_struct: CntDataStructure) -> None:
+        pass
+
+    def send_publication_to_next(self, cnt_struct: CntDataStructure, p_pub: int) -> None:
+        pass
+
+    def send_publication_to_ce(self, record: PubLogEntry) -> None:
+        pass
+
+    def __msg_cb__(self, node_id: NetworkNodeID, msg: Message) -> None:
+        match msg:
+            case _:
+                pass
