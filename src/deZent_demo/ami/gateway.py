@@ -49,7 +49,6 @@ class Gateway():
 
             # add measurement to log at GW
             self.record_log.add_record(sm_id, record)
-
-    def publish_record(self, pub_record: PubLogEntry) -> None:
-        pass # TODO
+    
+    # TODO: centralized publication
     

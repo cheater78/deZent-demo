@@ -8,8 +8,8 @@ from typing import Any, ClassVar, cast
 
 from deZent_demo.ami.measurement import MeasurementValue
 
-profile_data_path: str = "../../data/consumption_data/"
-comsumption_p_a_scale_factor: float = (1 / 1000)
+profile_data_path: str = "./data/consumption_data/"
+comsumption_p_a_scale_factor: float = (1 / 1000) # SLAs are normalized to 1000 entities (we need [0,1])
 
 class SmartMeterProfileType(StrEnum):
     Household1P = "1p_household"
@@ -183,7 +183,15 @@ class SmartMeterProfileHousehold2P(SmartMeterRecordedDataProfile, type=SmartMete
         )
 
 # https://www.destatis.de/DE/Themen/Gesellschaft-Umwelt/Umwelt/UGR/private-haushalte/Tabellen/stromverbrauch-haushalte.html
-class SmartMeterProfileHousehold3PAndMore(SmartMeterRecordedDataProfile, type=SmartMeterProfileType.Household3P):
+class SmartMeterProfileHousehold3P(SmartMeterRecordedDataProfile, type=SmartMeterProfileType.Household3P):
+    def __init__(self):
+        super().__init__(
+            consumption_p_a = 5047,
+            sla_file = "SLA_h0_Haushalt.csv"
+        )
+# NOTE: >3P = 3P, the original "3 and more" concept doesnt translate to the tagged class concept
+# manual implementation is required like so:
+class SmartMeterProfileHousehold4P(SmartMeterRecordedDataProfile, type=SmartMeterProfileType.Household4P):
     def __init__(self):
         super().__init__(
             consumption_p_a = 5047,

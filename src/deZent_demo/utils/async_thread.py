@@ -10,9 +10,10 @@ class AsyncThread(ABC):
 
     def __init__(self, auto_start: bool) -> None:
         self.event_loop: asyncio.AbstractEventLoop = asyncio.new_event_loop()
+        self._loop_ready = threading.Event()
+
         self.thread = threading.Thread(
-            target=self.__thread_runner__,
-            daemon=True
+            target=self.__thread_runner__
         )
         if auto_start:
             self.start()
@@ -39,6 +40,8 @@ class AsyncThread(ABC):
         self.__dispatch__(coroutine, -1)
 
     def __dispatch__(self, coroutine: CoroutineT[CoroutineReturnT], timeout: float | None) -> CoroutineReturnT | None:
+        self._loop_ready.wait() # wait until loop alive
+
         future = asyncio.run_coroutine_threadsafe(
             coroutine,
             self.event_loop
@@ -61,6 +64,7 @@ class AsyncThread(ABC):
 
     def __thread_runner__(self) -> None:
         asyncio.set_event_loop(self.event_loop)
+        self._loop_ready.set() # mark loop alive
         self.event_loop.create_task(self.__run__())
         self.event_loop.run_forever()
 

@@ -46,4 +46,4 @@ class P2PNode(NetworkNode):
                     self.discover_node(p2p_req.requested_peer)
             case _:
                 pass
-        self.msg_cb(node_id, msg)
+        self._msg_cb_(node_id, msg)

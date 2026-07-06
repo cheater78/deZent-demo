@@ -8,4 +8,12 @@ fi
 
 source "$VENV_DIR/bin/activate"
 
-sudo -E $SCRIPT_DIR/.venv/bin/python -m deZent_demo --virtual
+PACKAGE_NAME="dezent_demo"
+
+if ! python -m pip show "$PACKAGE_NAME" >/dev/null 2>&1; then
+    echo "Installing $PACKAGE_NAME..."
+    python -m pip install -e .
+fi
+
+# sudo -E $SCRIPT_DIR/.venv/bin/python -m deZent_demo --virtual
+python -m deZent_demo

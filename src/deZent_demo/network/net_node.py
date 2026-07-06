@@ -14,18 +14,16 @@ from deZent_demo.network.net_op import *
 NetworkNodeMessage = Message
 NetworkNodeMessageCB = Callable[[NetworkNodeID, NetworkNodeMessage], None]
 
-default_node_port: int = 9000
-
 class AbstractNetworkNode(ABC):
     """
     AbstractNetworkNode that ensures writing and reading via cb of NetworkNodeMessages
     """
 
     def __init__(self,
-                 msg_cb: NetworkNodeMessageCB,
-                 node_id: NetworkNodeID | None = None,) -> None:
-        self.node_id: NetworkNodeID = node_id if node_id else create_network_node_id()
-        self.msg_cb: NetworkNodeMessageCB = msg_cb
+                 node_id: NetworkNodeID | None = None,
+                 msg_cb: NetworkNodeMessageCB | None = None,) -> None:
+        self._node_id_: NetworkNodeID = node_id if node_id is not None else create_network_node_id()
+        self._msg_cb_: NetworkNodeMessageCB | None = msg_cb
 
     @abstractmethod
     def known_peers(self) -> list[NetworkNodeID]:
@@ -34,9 +32,19 @@ class AbstractNetworkNode(ABC):
     @abstractmethod
     def write(self, receiver: NetworkNodeID, msg: NetworkNodeMessage) -> None:
         pass
+    
+    def _node_msg_cb_(self, sender: NetworkNodeID, msg: NetworkNodeMessage) -> None:
+        if self._msg_cb_:
+            self._msg_cb_(sender, msg)
 
     def id(self) -> NetworkNodeID:
-        return self.node_id
+        return self._node_id_
+    
+    def register_msg_cb(self, msg_cb: NetworkNodeMessageCB) -> None:
+        self._msg_cb_ = msg_cb
+
+
+default_node_port: int = 9000
 
 class NetworkNode(AbstractNetworkNode):
     """
@@ -46,10 +54,10 @@ class NetworkNode(AbstractNetworkNode):
 
     def __init__(self,
                  net_if: str,
-                 msg_cb: NetworkNodeMessageCB,
                  certificate_name: str,
                  port: int = default_node_port,
-                 node_id: NetworkNodeID | None = None,):
+                 node_id: NetworkNodeID | None = None,
+                 msg_cb: NetworkNodeMessageCB | None = None,):
 
         self.net_stack = NetworkStack(
             net_if = net_if,
@@ -81,7 +89,7 @@ class NetworkNode(AbstractNetworkNode):
         self.net_stack.write(addr, msg_bytes)
 
     def __net_stack_connection_opened_cb__(self, addr: NetAddr) -> None:
-        self.__write_msg_raw__(addr, MessageConnect(self.node_id))
+        self.__write_msg_raw__(addr, MessageConnect(self._node_id_))
 
     def __net_stack_connection_closed_cb__(self, addr: NetAddr) -> None:
         node_id: NetworkNodeID | None = self.__get_node_id_from_addr__(addr)
@@ -94,16 +102,15 @@ class NetworkNode(AbstractNetworkNode):
         match msg_obj:
             case MessageConnect() as con:
                 self._known_peers_[con.id] = addr
+            case MessageNodeIDResponse() as ns:
+                self._known_peers_[ns.id_addr.id] = ns.id_addr.addr
             case _:
                 pass
         node_id: NetworkNodeID | None = self.__get_node_id_from_addr__(addr)
         if not node_id:
             print(f"[NetworkNode] received message from unknown sender ({addr})!")
             return
-        self.__net_node_msg_cb__(node_id, msg_obj)
-
-    def __net_node_msg_cb__(self, node_id: NetworkNodeID, msg: NetworkNodeMessage) -> None:
-        self.msg_cb(node_id, msg)
+        self._node_msg_cb_(node_id, msg_obj)
     
     def __get_node_id_from_addr__(self, addr: NetAddr) -> NetworkNodeID | None:
         for node_id, net_addr in self._known_peers_.items():
@@ -133,19 +140,20 @@ class VirtualNetwork(AsyncThread):
         self.message_queue.put_nowait(task)
 
     async def __run__(self) -> None:
+        print("VirtualNetwork.__run__ STARTED", flush=True)
         while True:
             task = await self.message_queue.get()
             receiver = self.nodes.get(task.receiver)
             if not receiver:
                 raise RuntimeError(f"VirtualNetwork: Task receiver: {task.receiver} is unknown!")
-            receiver.msg_cb(task.sender, task.msg)
+            receiver.emit_net_node_msg(task.sender, task.msg)
 
 class VirtualNetworkNode(AbstractNetworkNode):
 
     def __init__(self,
                  network: VirtualNetwork,
-                 msg_cb: NetworkNodeMessageCB,
-                 node_id: NetworkNodeID | None = None,):
+                 node_id: NetworkNodeID | None = None,
+                 msg_cb: NetworkNodeMessageCB | None = None,):
         
         super().__init__(
             msg_cb = msg_cb,
@@ -161,4 +169,6 @@ class VirtualNetworkNode(AbstractNetworkNode):
     def write(self, receiver: NetworkNodeID, msg: NetworkNodeMessage) -> None:
         self.network.write_message(self.id(), receiver, msg)
 
+    def emit_net_node_msg(self, sender: NetworkNodeID, msg: NetworkNodeMessage) -> None:
+        self._node_msg_cb_(sender, msg)
     

@@ -16,7 +16,9 @@ dependencies = [
     "pandas~=2.3.3",
     "scipy~=1.17.0",
     "simpy~=4.1.1",
-    "seaborn~=0.13.2"
+    "seaborn~=0.13.2",
+    "PySide6~=6.11.1",
+    "cbor2"
 ]
 
 [tool.setuptools]

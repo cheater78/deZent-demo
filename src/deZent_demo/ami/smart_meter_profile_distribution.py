@@ -13,7 +13,6 @@ class SmartMeterProfileDistributionType(StrEnum):
     NRW = "nrw"
 
 
-SmartMeterProfileWeightDistribution = dict[SmartMeterProfileType, float]
 SmartMeterProfileRatioDistribution = dict[SmartMeterProfileType, float]
 class SmartMeterProfileDistribution(ABC):
     _cls_type: ClassVar[SmartMeterProfileDistributionType]
@@ -45,14 +44,13 @@ class SmartMeterProfileDistribution(ABC):
         SmartMeterProfileDistribution._cls_registry[type] = cls
     
     def __init__(self) -> None:
-        self.profile_weights: SmartMeterProfileWeightDistribution
-        self.profile_ratios: SmartMeterProfileRatioDistribution
+        self.profile_ratios: SmartMeterProfileRatioDistribution = { }
 
     def get_profiles(self) -> list[SmartMeterProfileType]:
-        return list(self.profile_weights.keys())
+        return list(self.profile_ratios.keys())
     
     def get_weights(self) -> list[float]:
-        return list(self.profile_weights.values())
+        return list(self.profile_ratios.values())
     
     def sample_sm_profile_type(self) -> SmartMeterProfileType:
         return random.choices(self.get_profiles(), weights=self.get_weights()).pop()
@@ -66,6 +64,8 @@ class SmartMeterProfileDistribution(ABC):
 class ProfileDistribution_tk(SmartMeterProfileDistribution, type=SmartMeterProfileDistributionType.TK):
     def __init__(self):
         super().__init__()
+
+        self.profile_ratios: dict[SmartMeterProfileType, float] = { }
 
         self.tot_n_entities = 146611 # households + industry + bakery + restaurants + store + hair dresser
         # https://www.berlin.de/ba-treptow-koepenick/ueber-den-bezirk/zahlen-und-fakten/artikel.9422.php
