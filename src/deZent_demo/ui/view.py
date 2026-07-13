@@ -32,8 +32,6 @@ class PanningView(QGraphicsView):
 
         self.reset_view()
 
-    # -----------------------------------------------------
-
     def wheelEvent(self, event: QWheelEvent) -> None:
 
         factor: float = 1.15 if event.angleDelta().y() > 0 else 1 / 1.15
@@ -47,8 +45,6 @@ class PanningView(QGraphicsView):
         delta: QPointF = new_scene_pos - old_scene_pos
         self.translate(delta.x(), delta.y())
 
-    # -----------------------------------------------------
-
     def mousePressEvent(self, event: QMouseEvent) -> None:
 
         if event.button() == Qt.MouseButton.MiddleButton:
@@ -59,8 +55,6 @@ class PanningView(QGraphicsView):
             return
 
         super().mousePressEvent(event)
-
-    # -----------------------------------------------------
 
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
 
@@ -85,8 +79,6 @@ class PanningView(QGraphicsView):
 
         super().mouseMoveEvent(event)
 
-    # -----------------------------------------------------
-
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
 
         if event.button() == Qt.MouseButton.MiddleButton:
@@ -96,8 +88,6 @@ class PanningView(QGraphicsView):
             return
 
         super().mouseReleaseEvent(event)
-
-    # -----------------------------------------------------
 
     def reset_view(self) -> None:
         margin: QSizeF = QSizeF(0.2, 0.2)

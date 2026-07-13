@@ -7,7 +7,7 @@ import selectors
 import re
 from pathlib import Path
 import subprocess
-from time import sleep
+import time
 import shutil
 from dataclasses import dataclass
 from typing import Callable, Sequence
@@ -141,7 +141,7 @@ def sys_install(pkgs: dict[str, list[str]], force: bool = False) -> None:
     install_cmd: list[str] = run_install + new_pkgs
     # wait for pkg mng locks
     while not sys_pkg_mngr_check_lock(): # TODO: doesnt work -> still a race condition
-        sleep(1)
+        time.sleep(1)
         print(f"Package Manager busy! ({" ".join(install_cmd)})")
     run(install_cmd)
 
@@ -188,7 +188,7 @@ def sys_rmdir_r(path: Path) -> bool:
 def keepalive() -> None:
     try:
         while True:
-            sleep(1)
+            time.sleep(1)
     except KeyboardInterrupt:
         pass
 

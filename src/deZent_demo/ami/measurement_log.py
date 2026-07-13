@@ -127,32 +127,62 @@ class PubLogEntry():
         self.sm_type = sm_type
 
     def __str__(self):
-        return ("key: " + str(self.key) + ", value: " + str(self.measurement) + ", timepoint: " 
-                + str(self.time) + ", SM: " + str(self.id) + ", type: " + str(self.sm_type) )
+        return ("PubLogEntry(" + "key: " + str(self.key) + ", value: " + str(self.measurement) + ", timepoint: " 
+                + str(self.time) + ", SM: " + str(self.id) + ", type: " + str(self.sm_type) + ")")
 
 class PubLog():
     def __init__(self):
-        self.log = pd.DataFrame(columns = ["value", "time", "ID", "orig_measurement", "type"])
+        self.log: list[PubLogEntry] = []
+        # pd.DataFrame(columns = ["value", "time", "ID", "orig_measurement", "type"])
 
     def add_record(self, pub_tuple: PubLogEntry):
-        new_record = pd.DataFrame({"value": [pub_tuple.key], "time": [pub_tuple.time], "ID": [pub_tuple.id], "orig_measurement": [pub_tuple.measurement], "type": [pub_tuple.sm_type]})
-        self.log = pd.concat([self.log, new_record], ignore_index = True) # Appending new rows using concat()
+        self.log.append(pub_tuple)
+        # new_record = pd.DataFrame({"value": [pub_tuple.key], "time": [pub_tuple.time], "ID": [pub_tuple.id], "orig_measurement": [pub_tuple.measurement], "type": [pub_tuple.sm_type]})
+        # self.log = pd.concat([self.log, new_record], ignore_index = True) # Appending new rows using concat()
 
     def extend(self, pub_log: PubLog) -> None:
-        self.log = pd.concat([self.log, pub_log.log], ignore_index = True)
+        # self.log = pd.concat([self.log, pub_log.log], ignore_index = True)
+        self.log += pub_log.log
 
     def __bool__(self) -> bool:
-        return not self.log.empty
+        return bool(self.log)
 
     def __iter__(self) -> Iterator[PubLogEntry]:
-        # NOTE: DataFrame / .csv has to have the exact same attribute order as PubLogEntry, 
-        # if not construct with explicit assignment!
-        return (PubLogEntry(*row) for row in self.log.itertuples(index=False, name=None))
+        # # NOTE: DataFrame / .csv has to have the exact same attribute order as PubLogEntry, 
+        # # if not construct with explicit assignment!
+        # return (PubLogEntry(*row) for row in self.log.itertuples(index=False, name=None))
+        return self.log.__iter__()
     
     def __str__(self) -> str:
-        debug_str: str = ""
+        debug_str: str = "PubLog{"
         for pub_record in self:
             if debug_str:
-                debug_str += "\n"
-            debug_str +=  f"__pub_log__: {pub_record}"
+                debug_str += "\n\r"
+            debug_str +=  f"{pub_record}"
+        debug_str += "}"
         return debug_str
+    
+    def to_data_frame(self) -> pd.DataFrame:
+        keys: list[MeasurementKey] = []
+        time_stamps: list[datetime] = []
+        sm_ids: list[NetworkNodeID] = []
+        measurement_values: list[MeasurementValue] = []
+        sm_profile_types: list[SmartMeterProfileType] = []
+
+        for entry in self.log:
+            keys.append(entry.key)
+            time_stamps.append(entry.time)
+            sm_ids.append(entry.id)
+            measurement_values.append(entry.measurement)
+            sm_profile_types.append(entry.sm_type)
+        
+        return pd.DataFrame(
+            {
+                "value": keys,
+                "time": time_stamps,
+                "ID": sm_ids,
+                "orig_measurement": measurement_values,
+                "type": sm_profile_types
+            }
+        )
+

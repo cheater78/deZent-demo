@@ -137,7 +137,10 @@ class VirtualNetwork(AsyncThread):
 
     def write_message(self, sender: NetworkNodeID, receiver: NetworkNodeID, msg: NetworkNodeMessage) -> None:
         task = VirtualNetwork.MessageTask(sender, receiver, msg)
-        self.message_queue.put_nowait(task)
+        self.event_loop.call_soon_threadsafe(
+            self.message_queue.put_nowait,
+            task,
+        )
 
     async def __run__(self) -> None:
         print("VirtualNetwork.__run__ STARTED", flush=True)
@@ -168,6 +171,7 @@ class VirtualNetworkNode(AbstractNetworkNode):
     
     def write(self, receiver: NetworkNodeID, msg: NetworkNodeMessage) -> None:
         self.network.write_message(self.id(), receiver, msg)
+        print(f"VirtualNetworkNode: {self.id()}>{receiver}: {msg}", flush=True)
 
     def emit_net_node_msg(self, sender: NetworkNodeID, msg: NetworkNodeMessage) -> None:
         self._node_msg_cb_(sender, msg)

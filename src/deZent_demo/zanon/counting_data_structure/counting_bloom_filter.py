@@ -129,6 +129,49 @@ class CBloomFilter(CntDataStructure):
 				bit_str = ''
 		print(bit_str)
 
+	def draw_ascii(self) -> str:
+		frame: list[str] = []
+
+		max_arg: int = len(self.bit_array)
+		max_arg_log_len: int = len(str(max_arg))
+		max_val: int = 0
+
+		values: list[int] = [ ]
+
+		for ba in self.bit_array:
+			val: int = ba2int(ba)
+			values.append(val)
+			if max_val < val:
+				max_val = val
+
+		max_val_len: int = max_val + len(str(max_arg))
+		max_line_len: int = 0
+
+		for arg, val in enumerate(values):
+			val_len: int = val + len(str(arg))
+
+			arg_pad: str = "".join([" " for _ in range(max_arg_log_len - len(str(arg)))])
+			val_label: str = "".join([("=" if vi + 1 < val else ">") for vi in range(val)])
+			val_suffix_pad: str = "".join([" " for _ in range(max_val_len - val_len)])
+
+			line: str = f"| {arg_pad}{arg} | {val_label}{val}{val_suffix_pad} |"
+			frame.append(line)
+
+			if max_line_len < len(line):
+				max_line_len = len(line)
+
+		header: str = "CBF"
+		header_pad_len: int = max_line_len - len(header)
+		header_pad: str = "".join(["-" for _ in range(int(header_pad_len / 2) + (header_pad_len % 2))])
+		footer: str = "".join(["-" for _ in range(max_line_len)])
+
+		frame = \
+			[ header_pad + header + header_pad ] + \
+			frame + \
+			[ footer ]
+
+		return "\n\r".join(frame)
+
 	'''
 		The Hash function used by the CFB to index its items
 	'''

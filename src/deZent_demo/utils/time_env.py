@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
 import threading
 from collections import deque
@@ -57,11 +57,22 @@ class SimTimeEnv(AbstractTimeEnv):
 
         event.wait()
 
-    def advance_to(self, time_point: datetime) -> None:
+    def advance(self, to: datetime | None = None, by: timedelta | None = None) -> None:
+        if to is None and by is None:
+            return
+
         wake_events: list[threading.Event] = []
 
         # NOTE: the strict ordering is currently unused -> all events are collected and triggerd at once
         with self._lck_:
+            time_point: datetime
+            if to is not None:
+                time_point = to
+            elif by is not None:
+                time_point = self._discrete_current_time_ + by
+            else:
+                return # never
+
             while self._times_ and self._times_[0] <= time_point:
                 t = heapq.heappop(self._times_)
                 self._discrete_current_time_ = t
