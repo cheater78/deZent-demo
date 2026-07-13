@@ -1,3 +1,4 @@
+from __future__ import annotations
 from abc import ABC, abstractmethod
 import asyncio
 from typing import cast, Callable
@@ -8,8 +9,6 @@ from deZent_demo.network.address import *
 from deZent_demo.network.net_stack import NetworkStack, NetworkMessage
 from deZent_demo.network.protocol import *
 from deZent_demo.utils.async_thread import AsyncThread
-
-from deZent_demo.network.net_op import *
 
 NetworkNodeMessage = Message
 NetworkNodeMessageCB = Callable[[NetworkNodeID, NetworkNodeMessage], None]

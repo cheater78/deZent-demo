@@ -1,3 +1,4 @@
+from __future__ import annotations
 # https://www.geeksforgeeks.org/counting-bloom-filters-introduction-and-implementation/
 # https://medium.com/analytics-vidhya/cbfs-44c66b1b4a78
 # https://www.geeksforgeeks.org/bloom-filters-introduction-and-python-implementation/

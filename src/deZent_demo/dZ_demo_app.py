@@ -2,6 +2,7 @@ from __future__ import annotations
 import sys
 from PySide6.QtWidgets import (
     QApplication,
+    QPushButton
 )
 
 from deZent_demo.network.net_node import VirtualNetwork, VirtualNetworkNode
@@ -76,6 +77,14 @@ class App(QApplication):
             "deZent Demonstration",
             self.view
         )
+
+        self.nrb = QPushButton("Next Round")
+        def next_round():
+            self.env.advance(by=timedelta(minutes=15))
+        self.nrb.clicked.connect(next_round)
+        w = self.scene.addWidget(self.nrb)
+        w.setPos(self.scene.sceneRect().topLeft())
+        w.setScale(0.1)
 
     def run(self) -> int:
         self.network.start()
