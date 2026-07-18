@@ -23,12 +23,10 @@ class dZGraphScene(QGraphicsScene):
         super().__init__()
         self.setSceneRect(QRectF(0, 0, 0, 0))
 
-        node_count: int = 7
+        self.nodes: list[GWNode] = []
 
         center: QPointF = QPointF(0.0, 0.0)
         node_size: QSizeF = QSizeF(2.0, 2.0)
-        size: QSizeF = node_size * (3 * node_count / math.pi)
-
         self.ce = CENode(
             center - QPointF(node_size.width() / 2, node_size.height() / 2),
             node_size,
@@ -36,74 +34,30 @@ class dZGraphScene(QGraphicsScene):
             bg_color=QColor(255, 80, 20)
         )
         self.addItem(self.ce)
-
-        self.nodes: list[GWNode] = []
-
-        dummy_cbf = CBloomFilter(32, 7, 10, 3)
-        
-        for i in range(node_count):
-            node_pos: QPointF = center + QPointF(
-                0.5 * size.width()  * math.cos( 2 * math.pi * (i / node_count) ),
-                0.5 * size.height() * math.sin( 2 * math.pi * (i / node_count) )
-            )
-
-            gw_node: GWNode = GWNode(
-                i,
-                node_pos,
-                node_size
-            )
-            self.nodes.append(gw_node)
-            self.addItem(self.nodes[-1])
-
-            dummy_cbf = add_random_mesurements(dummy_cbf)
-            gw_node.update_cbf(dummy_cbf)
-
-            if i != 0:
-                self.addItem(Edge(self.nodes[i - 1], self.nodes[i]))
-            if i + 1 >= node_count:
-                self.addItem(Edge(self.nodes[i], self.nodes[0]))
-
-            self.addItem(Edge(self.nodes[i], self.ce))
-
-        self.__update_scene_rect__()
     
-    def update_elements(self, ce: deZentCentralEntity, gws: list[deZentGateway]) -> None:
-        self.clear()
+    def add_gw(self, gw_id: NetworkNodeID) -> GWNode:
+        gw = GWNode(gw_id)
+        self.nodes.append(gw)
+        self.update_elements()
+        return gw
 
-        node_count: int = len(gws)
+    def update_elements(self) -> None:
+        node_count: int = len(self.nodes)
 
         center: QPointF = QPointF(0.0, 0.0)
         node_size: QSizeF = QSizeF(2.0, 2.0)
         size: QSizeF = node_size * (3 * node_count / math.pi)
-
-        self.ce = CENode(
-            center - QPointF(node_size.width() / 2, node_size.height() / 2),
-            node_size,
-            QPointF(0.45, 0.45),
-            bg_color=QColor(255, 80, 20)
-        )
-        self.addItem(self.ce)
-
-        self.nodes: list[GWNode] = []
-
-        dummy_cbf = CBloomFilter(32, 7, 10, 3)
         
-        for i in range(node_count):
+        self.nodes.sort(key=lambda gw: gw.id)
+
+        for i, gw in enumerate(self.nodes):
             node_pos: QPointF = center + QPointF(
                 0.5 * size.width()  * math.cos( 2 * math.pi * (i / node_count) ),
                 0.5 * size.height() * math.sin( 2 * math.pi * (i / node_count) )
             )
-
-            gw_node: GWNode = GWNode(
-                i,
-                node_pos,
-                node_size
-            )
-            self.nodes.append(gw_node)
-            self.addItem(self.nodes[-1])
-
-            dummy_cbf = add_random_mesurements(dummy_cbf)
-            gw_node.update_cbf(dummy_cbf)
+            gw.setPos(node_pos)
+            if not gw in self.items():
+                self.addItem(gw)
 
             if i != 0:
                 self.addItem(Edge(self.nodes[i - 1], self.nodes[i]))

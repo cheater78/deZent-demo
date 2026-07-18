@@ -11,7 +11,7 @@ class GWNode(Node):
 
     def __init__(self,
                  id: NetworkNodeID,
-                 position: QPointF,
+                 position: QPointF = QPointF(0, 0),
                  size: QSizeF = QSizeF(1, 1),
                  socket_position_relative: QPointF = QPointF(0.0, 0.0), # upper right corner
                  socket_size_relative: QSizeF = QSizeF(0.1, 0.1),
@@ -31,6 +31,8 @@ class GWNode(Node):
             bg_color,
             parent=parent
         )
+
+        self.id: NetworkNodeID = id
 
         node_cbf_size: QSizeF = QSizeF(
             size.width() * cbf_size_relative.width(),

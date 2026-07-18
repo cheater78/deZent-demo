@@ -1,9 +1,7 @@
 import random
 from datetime import datetime, timedelta
-from dataclasses import dataclass
-from typing import Callable
 
-from deZent_demo.ami.gateway import Gateway, GatewayInstrumentInfo
+from deZent_demo.ami.gateway import Gateway
 from deZent_demo.ami.smart_meter_profile_distribution import SmartMeterProfileDistributionType
 from deZent_demo.ami.measurement_log import RecordLog, PubLog
 from deZent_demo.ami.gateway_profile import GatewayProfileType
@@ -13,21 +11,7 @@ from deZent_demo.network.protocol import *
 from deZent_demo.zanon.counting_data_structure import *
 from deZent_demo.utils.time_env import *
 
-@dataclass
-class deZentGatewayInstrumentInfo:
-    ccc_round_begin_cb: Callable[[NetworkNodeID, datetime], None] | None = None
-    ccc_round_end_cb: Callable[[NetworkNodeID, datetime], None] | None = None
-    
-    ccc_collection_round_begin_cb: Callable[[NetworkNodeID, datetime, CntDataStructure], None] | None = None
-    ccc_collection_round_end_cb: Callable[[NetworkNodeID, datetime, CntDataStructure], None] | None = None
-
-    ccc_publication_round_begin_cb: Callable[[NetworkNodeID, datetime, CntDataStructure, float], None] | None = None
-    ccc_publication_round_end_cb: Callable[[NetworkNodeID, datetime, CntDataStructure, float], None] | None = None
-
-    collection_round_cb: Callable[[NetworkNodeID, datetime, CntDataStructure], None] | None = None
-    publication_round_cb: Callable[[NetworkNodeID, datetime, CntDataStructure, float], None] | None = None
-
-    gateway_instrument_info: GatewayInstrumentInfo | None = None
+from deZent_demo.instrument.deZent_gateway_instrumentor import *
 
 class deZentGateway(Gateway):
     
@@ -44,7 +28,7 @@ class deZentGateway(Gateway):
                  gw_profile_type: GatewayProfileType = GatewayProfileType.STANDARD,
                  n_sm_conn: int = 1,
                  sm_profile_distribution_type: SmartMeterProfileDistributionType = SmartMeterProfileDistributionType.TK,
-                 instrument_info: deZentGatewayInstrumentInfo | None = None) -> None:
+                 instrumentor: Instrumentor = Instrumentor()) -> None:
         self.env: AbstractTimeEnv = env
 
         self._node_: AbstractNetworkNode = node
@@ -69,29 +53,35 @@ class deZentGateway(Gateway):
             self._node_.id(),
             gw_profile_type,
             n_sm_conn,
-            sm_profile_distribution_type
+            sm_profile_distribution_type,
+            instrumentor
         )
 
-        self.dZgw_instrument_info: deZentGatewayInstrumentInfo | None = instrument_info
-
     def on_coord_round_begin(self, curr_round_time: datetime) -> None:
-        self.coord = True
-        self.on_coord_wait_for_round_begin(curr_round_time)
-        self.on_coord_collection_round_begin(curr_round_time)
+        if not self.on_coord_wait_for_round_begin(curr_round_time):
+            return # waiting was cancelled
 
-        if self.dZgw_instrument_info and self.dZgw_instrument_info.ccc_round_begin_cb:
-            self.dZgw_instrument_info.ccc_round_begin_cb(self._node_.id(), curr_round_time)
+        self._instrument(dZGWInstrumentEvent.CCC_ROUND_BEGIN,
+            curr_round_time)
+
+        self.coord = True
+        self.on_coord_collection_round_begin(curr_round_time)
 
     '''
         coordinating gw prepares and starts collection round
         create cbf and add initial noise for protecting measurement entries
     '''
     def on_coord_collection_round_begin(self, curr_round_time: datetime) -> None:
+        self._instrument(dZGWInstrumentEvent.CCC_COLLECTION_ROUND_BEGIN,
+            curr_round_time)
+        
         cnt_struct: CntDataStructure = CBloomFilter.create(self.n_sm_conn, self.n_cycles_for_anon)
+        self._instrument(dZGWInstrumentEvent.CCC_COLLECTION_ROUND_BEGIN_CBF_CREATED,
+            curr_round_time, cnt_struct)
+        
         cnt_struct = self.__coord_add_initial_noise_to_cnt_struct__(cnt_struct)
-
-        if self.dZgw_instrument_info and self.dZgw_instrument_info.ccc_collection_round_begin_cb:
-            self.dZgw_instrument_info.ccc_collection_round_begin_cb(self._node_.id(), curr_round_time, cnt_struct)
+        self._instrument(dZGWInstrumentEvent.CCC_COLLECTION_ROUND_BEGIN_CBF_NOISE_ADDED,
+            curr_round_time, cnt_struct, self.coord_noise)
         
         self.send_collection_to_next(cnt_struct, curr_round_time)
 
@@ -100,57 +90,68 @@ class deZentGateway(Gateway):
         remove initial noise, start first publication round
     '''
     def on_coord_collection_round_end(self, cnt_struct: CntDataStructure, curr_round_time: datetime) -> None:
-        cnt_struct = self.__coord_remove_initial_noise_from_cnt_struct__(cnt_struct)
-        cnt_struct.ensure_min_cnt_z(self.z) # NOTE: dangerzone! what abt byzantine CCCs, not ensuring z exposes non-anon. data
+        self._instrument(dZGWInstrumentEvent.CCC_COLLECTION_ROUND_END,
+            curr_round_time, cnt_struct)
         
-        if self.dZgw_instrument_info and self.dZgw_instrument_info.ccc_collection_round_end_cb:
-            self.dZgw_instrument_info.ccc_collection_round_end_cb(self._node_.id(), curr_round_time, cnt_struct)
+        cnt_struct = self.__coord_remove_initial_noise_from_cnt_struct__(cnt_struct)
+        self._instrument(dZGWInstrumentEvent.CCC_COLLECTION_ROUND_END_CBF_NOISE_REMOVED,
+            curr_round_time, cnt_struct, self.coord_noise)
 
-        # start publication round with random 0 <= p_pub < 1
+        # NOTE: dangerzone! what abt byzantine CCCs, not ensuring z exposes non-anon. data        
+        cnt_struct.ensure_min_cnt_z(self.z)
+        self._instrument(dZGWInstrumentEvent.CCC_COLLECTION_ROUND_END_CBF_Z_ENSURED,
+            curr_round_time, cnt_struct, self.z)
+
+        # start publication round with random 0.0 <= p_pub < 1.0
         p_pub: float = random.random()
         self.on_coord_publication_round_begin(cnt_struct, p_pub, curr_round_time)
 
     '''
-        coordinating gw starts a publication round (could be first with 0 < p_pub < 100, or second with p_pub = 100)
+        coordinating gw starts a publication round (could be first with 0 < p_pub < 1.0, or second with p_pub = 1.0)
     '''
     def on_coord_publication_round_begin(self, cnt_struct: CntDataStructure, p_pub: float, curr_round_time: datetime) -> None:
-        if self.dZgw_instrument_info and self.dZgw_instrument_info.ccc_publication_round_begin_cb:
-            self.dZgw_instrument_info.ccc_publication_round_begin_cb(self._node_.id(), curr_round_time, cnt_struct, p_pub)
+        self._instrument(dZGWInstrumentEvent.CCC_PUBLICATION_ROUND_BEGIN,
+            curr_round_time, cnt_struct, p_pub)
         
         self.send_publication_to_next(cnt_struct, p_pub, curr_round_time)        
 
     def on_coord_publication_round_end(self, cnt_struct: CntDataStructure, p_pub: float, curr_round_time: datetime) -> None:
-        if self.dZgw_instrument_info and self.dZgw_instrument_info.ccc_publication_round_begin_cb:
-            self.dZgw_instrument_info.ccc_publication_round_begin_cb(self._node_.id(), curr_round_time, cnt_struct, p_pub)
+        publication_fully_finished: bool = (cnt_struct.is_empty() or p_pub == 1)
         
-        if cnt_struct.is_empty() or p_pub == 1:
+        self._instrument(dZGWInstrumentEvent.CCC_PUBLICATION_ROUND_END,
+            curr_round_time, cnt_struct, p_pub, publication_fully_finished)
+        
+        if publication_fully_finished:
             self.on_coord_round_end(curr_round_time)
         else:
-            # start another publication round with p_pub = 1
-            p_pub = 1
+            # start another publication round with p_pub = 1.0
+            p_pub = 1.0
             self.on_coord_publication_round_begin(cnt_struct, p_pub, curr_round_time)
 
     
     def on_coord_round_end(self, curr_round_time: datetime) -> None:
-        if self.dZgw_instrument_info and self.dZgw_instrument_info.ccc_round_end_cb:
-            self.dZgw_instrument_info.ccc_round_end_cb(self._node_.id(), curr_round_time)
+        self._instrument(dZGWInstrumentEvent.CCC_ROUND_END,
+            curr_round_time)
         
         self.coord = False
         self.send_coord_round_begin_to_next(curr_round_time)
 
-
     '''
-        collection round with count structure passed on from predecessor
+        collection round with count structure passed on by predecessor
     '''
     def on_collection_round(self, cnt_struct: CntDataStructure, curr_round_time: datetime) -> None:
-        self.record_log.remove_records_older_dt(curr_round_time, self.delta_t)
+        self._instrument(dZGWInstrumentEvent.GW_ON_COLLECTION_ROUND,
+            curr_round_time, cnt_struct)
         
+        self.record_log.remove_records_older_dt(curr_round_time, self.delta_t)
         # get measurement from smart meters connected to gw
         self.collect_curr_measurement_from_sms(curr_round_time)
-        cnt_struct.add_records(self.record_log)
+        self._instrument(dZGWInstrumentEvent.GW_ON_COLLECTION_ROUND_SM_MEASUREMENTS_COLLECTED,
+            curr_round_time, self.record_log)
 
-        if self.dZgw_instrument_info and self.dZgw_instrument_info.collection_round_cb:
-            self.dZgw_instrument_info.collection_round_cb(self._node_.id(), curr_round_time, cnt_struct)
+        cnt_struct.add_records(self.record_log)
+        self._instrument(dZGWInstrumentEvent.GW_ON_COLLECTION_ROUND_RECORDS_ADDED,
+            curr_round_time, cnt_struct)
 
         if self.coord: # collection round returned to the CCC
             self.on_coord_collection_round_end(cnt_struct, curr_round_time)
@@ -162,18 +163,17 @@ class deZentGateway(Gateway):
         the publication probability can be changed to provide certain deniability and provide more privacy
     '''
     def on_publication_round(self, cnt_struct: CntDataStructure, p_pub: float, curr_round_time: datetime) -> None:
+        self._instrument(dZGWInstrumentEvent.GW_ON_PUBLICATION_ROUND,
+            curr_round_time, cnt_struct, p_pub)
+
         # find records in my local log are in cnt_struct
         # meaning they occurred at more than z individuals
         existing_records: RecordLog = cnt_struct.filter_records_existing(self.record_log)
-
-        # print(f"__check__: existing records: {existing_records}")
-
         # find those entries that have been recorded in current clock cycle
         # and aren't published yet
         recs2pub: PubLog = existing_records.get_current_unpublished_records(curr_round_time)
-        
-        #print("__check__: potential current pub records at GW: ", self.id)#, recs2pub)
-        #logger.print_pub_log(recs2pub)
+        self._instrument(dZGWInstrumentEvent.GW_ON_PUBLICATION_ROUND_RECORDS_TO_PUBLISH,
+            curr_round_time, cnt_struct, self.record_log, recs2pub, p_pub)
         
         published_records: PubLog = PubLog() # collect published records first, then send them all at once
         # key hashes of some of GW's records were found in cnt_struct
@@ -181,6 +181,9 @@ class deZentGateway(Gateway):
             # take publication responsibility with probability p_pub
             sampled_p_pub: float = random.random()
             should_publish: bool = sampled_p_pub < p_pub
+            self._instrument(dZGWInstrumentEvent.GW_ON_PUBLICATION_ROUND_SHOULD_RECORD_BE_PUBLISHED,
+                curr_round_time, cnt_struct, self.record_log, recs2pub, p_pub, rec2pub, sampled_p_pub, should_publish)
+
             if should_publish and cnt_struct.check(rec2pub.key):
 
                 # to publish: forward PubLogEntry to CE with value, timepoint, and sm_id for collection and further processing
@@ -191,6 +194,8 @@ class deZentGateway(Gateway):
 
                 # remove element's hash from cnt_struct
                 cnt_struct.remove(rec2pub.key)
+                self._instrument(dZGWInstrumentEvent.GW_ON_PUBLICATION_ROUND_CBF_REMOVED_PUBLISHED_RECORD,
+                    curr_round_time, cnt_struct, self.record_log, recs2pub, p_pub, rec2pub)
 
                 # count structure is empty after publication -> not often the case due to older measurements within dt that are also counted
                 if(cnt_struct.is_empty()):
@@ -200,9 +205,6 @@ class deZentGateway(Gateway):
             # publish all records at once
             self.send_publication_to_ce(published_records)
         
-        if self.dZgw_instrument_info and self.dZgw_instrument_info.publication_round_cb:
-            self.dZgw_instrument_info.publication_round_cb(self._node_.id(), curr_round_time, cnt_struct, p_pub)
-        
         if self.coord:
             self.on_coord_publication_round_end(cnt_struct, p_pub, curr_round_time)
         else:
@@ -211,8 +213,8 @@ class deZentGateway(Gateway):
     '''
         coord waits for the current round time stamp to be reached before starting the round
     '''
-    def on_coord_wait_for_round_begin(self, curr_round_time: datetime) -> None:
-        self.env.wait_until(curr_round_time)
+    def on_coord_wait_for_round_begin(self, curr_round_time: datetime) -> bool:
+        return self.env.wait_until(curr_round_time)
 
     def _node_msg_cb_(self, sender: NetworkNodeID, msg: Message) -> None:
         match msg:
@@ -230,6 +232,8 @@ class deZentGateway(Gateway):
             curr_round_time,
             cnt_struct
         )
+        self._instrument(dZGWInstrumentEvent.GW_SEND_COLLECTION_TO_NEXT,
+            self.next, msg)
         self._node_.write(self.next, msg)
 
     def send_publication_to_next(self, cnt_struct: CntDataStructure, p_pub: float, curr_round_time: datetime) -> None:
@@ -238,18 +242,26 @@ class deZentGateway(Gateway):
             cnt_struct,
             p_pub
         )
+        self._instrument(dZGWInstrumentEvent.GW_SEND_PUBLICATION_TO_NEXT,
+            self.next, msg)
         self._node_.write(self.next, msg)
 
     def send_publication_to_ce(self, records: PubLog) -> None:
         msg: MessagePublishRecord = MessagePublishRecord(
             records
         )
+        self._instrument(dZGWInstrumentEvent.GW_SEND_PUBLICATION_TO_CE,
+            self.ce, msg)
         self._node_.write(self.ce, msg)
 
     def send_coord_round_begin_to_next(self, curr_round_time: datetime) -> None:
+        # NOTE: CCC promotion is currently cyclic
+        # TODO: proper CCC election
         msg: MessageDeZentRoundBegin = MessageDeZentRoundBegin(
             curr_round_time + self.measurement_interval
         )
+        self._instrument(dZGWInstrumentEvent.CCC_SEND_COORD_ROUND_BEGIN_TO_NEXT,
+            self.next, msg)
         self._node_.write(self.next, msg)
 
     def __coord_sample_initial_noise__(self) -> int:

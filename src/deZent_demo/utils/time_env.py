@@ -12,7 +12,7 @@ class AbstractTimeEnv(ABC):
         pass
 
     @abstractmethod
-    def wait_until(self, time_point: datetime) -> None:
+    def wait_until(self, time_point: datetime) -> bool:
         pass
 
 class RealTimeEnv(AbstractTimeEnv):
@@ -20,12 +20,13 @@ class RealTimeEnv(AbstractTimeEnv):
     def _now_(self) -> datetime:
         return datetime.now()
 
-    def wait_until(self, time_point: datetime) -> None:
+    def wait_until(self, time_point: datetime) -> bool:
         now: datetime = self._now_()
         if time_point <= now:
-            return
+            return True
         remaining_s: float = (time_point - now).total_seconds()
         time.sleep(remaining_s) # yield until time is reached
+        return True
 
 
 class SimTimeEnv(AbstractTimeEnv):
@@ -37,12 +38,21 @@ class SimTimeEnv(AbstractTimeEnv):
         # Min-heap of unique timestamps.
         self._times_: list[datetime] = []
         self._waiters_: dict[datetime, deque[threading.Event]] = {}
+        self._stop_event: threading.Event = threading.Event()
 
     def _now_(self) -> datetime:
         with self._lck_:
             return self._discrete_current_time_
 
-    def wait_until(self, time_point: datetime) -> None:
+    def stop(self) -> None:
+        self._stop_event.set() # mark time env dead
+
+        # release all waiters
+        for _, q in self._waiters_.items():
+            for e in q:
+                e.set()
+
+    def wait_until(self, time_point: datetime) -> bool:
         event = threading.Event()
 
         with self._lck_:
@@ -56,6 +66,8 @@ class SimTimeEnv(AbstractTimeEnv):
                 self._waiters_[time_point].append(event)
 
         event.wait()
+
+        return not self._stop_event.is_set()
 
     def advance(self, to: datetime | None = None, by: timedelta | None = None) -> None:
         if to is None and by is None:

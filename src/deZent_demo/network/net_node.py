@@ -8,7 +8,7 @@ from deZent_demo.utils import cbor_codec
 from deZent_demo.network.address import *
 from deZent_demo.network.net_stack import NetworkStack, NetworkMessage
 from deZent_demo.network.protocol import *
-from deZent_demo.utils.async_thread import AsyncThread
+from deZent_demo.utils.async_thread import QueueWorkerThread
 
 NetworkNodeMessage = Message
 NetworkNodeMessageCB = Callable[[NetworkNodeID, NetworkNodeMessage], None]
@@ -117,38 +117,31 @@ class NetworkNode(AbstractNetworkNode):
                 return node_id
         return None
 
-class VirtualNetwork(AsyncThread):
+@dataclass(frozen=True)
+class VirtualNetworkMessageTask:
+    sender: NetworkNodeID
+    receiver: NetworkNodeID
+    msg: NetworkNodeMessage
 
-    @dataclass(frozen=True)
-    class MessageTask:
-        sender: NetworkNodeID
-        receiver: NetworkNodeID
-        msg: NetworkNodeMessage
+class VirtualNetwork(QueueWorkerThread[VirtualNetworkMessageTask]):
 
-    def __init__(self, auto_start: bool = True) -> None:
+    def __init__(self,
+                 start_immediately: bool = True) -> None:
         self.nodes: dict[NetworkNodeID, VirtualNetworkNode] = { }
-        self.message_queue: asyncio.Queue[VirtualNetwork.MessageTask] = asyncio.Queue[VirtualNetwork.MessageTask]()
-
-        super().__init__(auto_start)
+        super().__init__(start_immediately)
     
     def add_node(self, node: VirtualNetworkNode) -> None:
         self.nodes[node.id()] = node
 
     def write_message(self, sender: NetworkNodeID, receiver: NetworkNodeID, msg: NetworkNodeMessage) -> None:
-        task = VirtualNetwork.MessageTask(sender, receiver, msg)
-        self.event_loop.call_soon_threadsafe(
-            self.message_queue.put_nowait,
-            task,
-        )
+        task = VirtualNetworkMessageTask(sender, receiver, msg)
+        self.dispatch(task)
 
-    async def __run__(self) -> None:
-        print("VirtualNetwork.__run__ STARTED", flush=True)
-        while True:
-            task = await self.message_queue.get()
-            receiver = self.nodes.get(task.receiver)
-            if not receiver:
-                raise RuntimeError(f"VirtualNetwork: Task receiver: {task.receiver} is unknown!")
-            receiver.emit_net_node_msg(task.sender, task.msg)
+    def _handle_element(self, element: VirtualNetworkMessageTask) -> None:
+        receiver = self.nodes.get(element.receiver)
+        if not receiver:
+            raise RuntimeError(f"VirtualNetwork: Task receiver: {element.receiver} is unknown!")
+        receiver.emit_net_node_msg(element.sender, element.msg)
 
 class VirtualNetworkNode(AbstractNetworkNode):
 

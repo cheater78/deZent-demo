@@ -44,6 +44,8 @@ class MessageDeZentRound(Message):
 
 @smartdataclass
 class MessageDeZentRoundBegin(MessageDeZentRound, tag=MessageType.DZ_ROUND_BEGIN):
+    # NOTE: CCC promotion is currently cyclic
+    # TODO: proper CCC election
     pass
 
 @smartdataclass

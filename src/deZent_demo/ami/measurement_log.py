@@ -15,8 +15,8 @@ class RecordLogEntry():
         self.is_published: bool = is_pub
         
     def __str__(self):
-        return ("orig value: " + str(self.orig_measurement) + " time: " + str(self.time) + 
-                ", is_published " + str(self.is_published) )
+        return ("RecordLogEntry(orig value: " + str(self.orig_measurement) + ", time: " + str(self.time) + 
+                ", is_published " + str(self.is_published) + ")" )
 
 RecordLogDictEntry = dict[NetworkNodeID, RecordLogEntry]
 RecordLogDict = dict[MeasurementKey, RecordLogDictEntry]
@@ -80,12 +80,13 @@ class RecordLog():
         return iter(self.log.items())
 
     def __str__(self) -> str:
-        debug_str: str = ""
-        for key, m_dict in self:
+        debug_str: str = "RecordLog{"
+        for m_key, m_dict in self:
+            if debug_str:
+                debug_str += "\n\r"
             for sm_id, record in m_dict.items():
-                if debug_str:
-                    debug_str += "\n"
-                debug_str +=  f"__record_log__: measurement_key: {key}, SM: {sm_id}, {record}"
+                debug_str +=  f"(Key: {m_key}, SM: {sm_id}, {record}), "
+        debug_str += "}"
         return debug_str
 
     '''

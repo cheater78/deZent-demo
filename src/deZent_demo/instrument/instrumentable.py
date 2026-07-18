@@ -1,16 +1,15 @@
 from abc import ABC
-from typing import Generic, TypeVar
+from typing import Any
 
-from .instrumentor import Instrumentor
+from .instrumentor import Instrumentor, InstrumentEvent
 
-InstrumentorType = TypeVar("InstrumentorType")
-class Instrumentable(ABC, Generic[InstrumentorType]):
+class Instrumentable(ABC):
 
-    def __init__(self,
-                 instrumentor: InstrumentorType | None = None) -> None:
-        super().__init__()
+    def __init__(self, instrumentor: Instrumentor):
+        self.__instrumentor: Instrumentor = instrumentor
 
-        self.instrumentor: InstrumentorType | None = instrumentor
+    def set_instrumentor(self, instrumentor: Instrumentor) -> None:
+        self.__instrumentor = instrumentor
 
-    def instrument_trigger(self) -> None:
-        pass
+    def _instrument(self, event: InstrumentEvent, *args: Any) -> None:
+        self.__instrumentor.call(event, *args)
