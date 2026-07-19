@@ -17,6 +17,8 @@ from .ui.view import PanningView
 from .ui.graph_node_gw import GWNode
 from .ui.deZent_gateway_widget import deZentGatewayWidget
 
+from .ui.cbf_vis.cbf_vis import CBFPlot
+
 from deZent_demo.instrument.gateway_instrumentor import *
 from deZent_demo.instrument.deZent_gateway_instrumentor import *
 
@@ -54,6 +56,19 @@ class App(QApplication):
         w = self.scene.addWidget(self.nrb)
         w.setPos(self.scene.sceneRect().topLeft())
         w.setScale(0.1)
+
+        cbf: CBloomFilter = CBloomFilter.create(3, 4)
+        for _ in range(0, 4192):
+            cbf.add(random.randint(0,256))
+
+        self.cbf_plot: CBFPlot = CBFPlot(cbf)
+        self.scene.addItem(self.cbf_plot)
+        self.cbf_plot.setPos(0, 550)
+
+        self.scene.setSceneRect(
+            -500, -500,
+            +10000, +10000
+        )
 
     def run(self) -> int:
         self.network.start()

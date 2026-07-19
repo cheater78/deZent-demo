@@ -1,0 +1,3 @@
+
+# collect design constants here
+# e.g. cbf_plot_bar_width = ...

@@ -36,6 +36,7 @@ class dZGraphScene(QGraphicsScene):
         self.addItem(self.ce)
     
     def add_gw(self, gw_id: NetworkNodeID) -> GWNode:
+        #TODO: from deZentGateway + infer edges
         gw = GWNode(gw_id)
         self.nodes.append(gw)
         self.update_elements()
@@ -59,7 +60,7 @@ class dZGraphScene(QGraphicsScene):
             if not gw in self.items():
                 self.addItem(gw)
 
-            if i != 0:
+            if i != 0: #NOTE: broken, infer edges from deZentGateway
                 self.addItem(Edge(self.nodes[i - 1], self.nodes[i]))
             if i + 1 >= node_count:
                 self.addItem(Edge(self.nodes[i], self.nodes[0]))
