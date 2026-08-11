@@ -183,3 +183,8 @@ class CBloomFilter(CntDataStructure):
 		# return fnv1a_32(item.to_bytes(32),seed) % self.m
 		h = mmh3.hash(item.to_bytes(32), seed, False)
 		return h % self.m
+
+	# TODO: maybe define [hash for k] once -> return cbf indices
+
+	def inspect_item_indices(self, item: MeasurementKey) -> list[int]:
+		return [self.__cfb_hash__(item, i) for i in range(self.k)]
