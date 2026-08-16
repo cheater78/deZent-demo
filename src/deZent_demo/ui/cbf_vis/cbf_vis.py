@@ -6,12 +6,13 @@ from deZent_demo.ui.utils import *
 from enum import Enum
 import math
 from typing import TypeVar, ClassVar, override
+from abc import abstractmethod
 from bitarray.util import ba2int
 
 from PySide6.QtCore import (
     QRect, QRectF,
     Qt,
-    QLine,
+    QLineF,
     QSizeF,
 )
 from PySide6.QtGui import (
@@ -32,49 +33,6 @@ from PySide6.QtWidgets import (
     QWidget,
     QGraphicsWidget,
 )
-
-class CBFPlotBar(QGraphicsRectItem):
-    unit_height: ClassVar[int] = 4
-    bar_width: ClassVar[int] = 4
-
-    z_layer: ClassVar[int] = 1
-
-    bar_border_color: ClassVar[QColor] = QColor(Qt.GlobalColor.blue)
-    bar_border_width: ClassVar[int] = 0
-    
-    bar_infill_color: ClassVar[QColor] = QColor(Qt.GlobalColor.darkBlue)
-
-
-    def __init__(self,
-                 value: int = 0,
-                 parent: QGraphicsItem | None = None) -> None:
-        super().__init__(parent=parent)
-
-        border_pen: QPen = QPen(
-            self.bar_border_color,
-            self.bar_border_width
-        )
-        self.setPen(border_pen)
-
-        infill_brush: QBrush = QBrush(
-            self.bar_infill_color
-        )
-        self.setBrush(infill_brush)
-
-        self._value: int = value
-        self.set_value(value)
-
-        self.setZValue(self.z_layer)
-    
-    def set_value(self, value: int) -> None:
-        self._value: int = value
-        bar_rect: QRectF = QRectF(
-            - self.bar_width / 2, 0.0,
-            + self.bar_width / 2, -(self._value * self.unit_height)
-        )
-        self.setRect(bar_rect)
-
-
 
 class CBFPlotAxis(QGraphicsItem):
     unit_height: ClassVar[int] = 4
@@ -200,149 +158,115 @@ class CBFPlotAxis(QGraphicsItem):
         )
         return aabb
 
-Scope = list[int]
+class PlotFocus(set[int]):
+    pass
 
-class ScopedCBFPlotAxis(QGraphicsItem):
-    unit_height: ClassVar[int] = 4
-    bar_width: ClassVar[int] = 4
-    bar_spacing: ClassVar[int] = 2
-
-    scope_spacing: ClassVar[int] = 4
-
-    z_layer: ClassVar[int] = -1
-
-    line_width: ClassVar[int] = 4
-    arrow_height: ClassVar[int] = 8
-    arrow_width: ClassVar[int] = 8
-    marker_width: ClassVar[int] = 8
-
-    marker_label_axis_distance: ClassVar[int] = 4
-    marker_label_font_size: ClassVar[int] = 1
-
-    line_color: ClassVar[QColor] = QColor(Qt.GlobalColor.green)
-    marker_label_font_color: ClassVar[QColor] = QColor(Qt.GlobalColor.green)
-
-    def __init__(self,
-                     /,
-                     scope: Scope,
-                     max_value: int,
-                     parent: QGraphicsItem | None = None) -> None:
+class PlotSection(QGraphicsItem):
+    def __init__(self, /, parent: QGraphicsItem | None = None) -> None:
         super().__init__(parent)
 
-        self.max_value: int = max_value
-        self.scope: Scope = scope
-                
-        self.unit_length: int = self.bar_width + self.bar_spacing
-        self.length: int = (len(self.scope) * 3 + 2) * self.unit_length
+    @abstractmethod
+    def size(self) -> float:
+        pass
+    
+class PlotSectionFocusSeparator(PlotSection):
+    pass
 
-        self.line_pen: QPen = QPen(
-            self.line_color,
-            self.line_width,
-            Qt.PenStyle.SolidLine,
-            Qt.PenCapStyle.RoundCap,
-            Qt.PenJoinStyle.RoundJoin
+class PlotBar(QGraphicsRectItem):
+    unit_height: ClassVar[int] = 4
+    bar_width: ClassVar[int] = 4
+
+    z_layer: ClassVar[int] = 1
+
+    bar_border_color: ClassVar[QColor] = QColor(Qt.GlobalColor.blue)
+    bar_border_width: ClassVar[int] = 0
+    
+    bar_infill_color: ClassVar[QColor] = QColor(Qt.GlobalColor.darkBlue)
+
+
+    def __init__(self,
+                 value: int = 0,
+                 parent: QGraphicsItem | None = None) -> None:
+        super().__init__(parent=parent)
+
+        border_pen: QPen = QPen(
+            self.bar_border_color,
+            self.bar_border_width
         )
+        self.setPen(border_pen)
 
-        self.marker_label_brush: QBrush = QBrush(
-            self.marker_label_font_color
+        infill_brush: QBrush = QBrush(
+            self.bar_infill_color
         )
+        self.setBrush(infill_brush)
 
-        self.arrow: Arrow = Arrow(QPoint(0, -self.length), QPoint(0, -self.length - self.arrow_height), self.arrow_width, line_pen=self.line_pen, parent=self)
+        self._value: int = value
+        self.set_value(value)
 
-        self.axis_lines: list[QGraphicsLineItem] = []
-        self.axis_spacer_lines: list[QGraphicsLineItem] = []
-        self.markers: list[QGraphicsLineItem] = []
-        self.marker_labels: list[QGraphicsSimpleTextItem] = []
-
-        def spacer_lines(y: int, x1: int, x2: int) -> list[QGraphicsLineItem]:
-            size: int = x2 - x1
-            segment_size: int = size // 5
-
-            line1: QLine = QLine(
-                x1 + 1 * segment_size, y,
-                x1 + 2 * segment_size, y,
-            )
-
-            line2: QLine = QLine(
-                x1 + 3 * segment_size, y,
-                x1 + 4 * segment_size, y,
-            )
-
-            lines: list[QGraphicsLineItem] = []
-            lines.append(QGraphicsLineItem(
-                line1,
-                parent=self
-            ))
-            lines[-1].setPen(self.line_pen)
-            lines.append(QGraphicsLineItem(
-                line2,
-                parent=self
-            ))
-            lines[-1].setPen(self.line_pen)
-            return lines
-
-        x: int = 0
-        self.__add_marker(0)
-        self.axis_lines.append(QGraphicsLineItem(
-            x, 0,
-            self.bar_spacing, 0, parent=self
-        ))
-        self.axis_lines[-1].setPen(self.line_pen)
-        x += self.bar_spacing
-
-        self.axis_spacer_lines.extend(spacer_lines(0, x, x + self.scope_spacing))
-        x += self.scope_spacing
-
-        for index in self.scope:
-            pass
-
-        #TODO: questionable - maybe scopes are x axis + bars (partial diagrams)
-        # push all code back into diagram - abstract primitives like arrow, x/y marker + label, bar?, scope_spacer!, but not axis as a whole
-        # provide functions to add these things easily
-        
-        # final options:
-        # full or k = 1,2,...
-
+        self.setZValue(self.z_layer)
+    
+    def set_value(self, value: int) -> None:
+        self._value: int = value
+        bar_rect: QRectF = QRectF(
+            - self.bar_width / 2, 0.0,
+            + self.bar_width / 2, -(self._value * self.unit_height)
+        )
+        self.setRect(bar_rect)
 
 class CBFPlot(QGraphicsWidget):
 
     def __init__(self,
         cbf: CBloomFilter | None = None,
+        focus: set[int] = set[int](),
         parent: QGraphicsItem | None = None) -> None:
         super().__init__(parent=parent)
 
         self.cbf: CBloomFilter | None = cbf
 
-        self.scene_dimension: QSizeF = QSizeF(850, 250)
+        self.scene_dimension: QSizeF = QSizeF(30000, 428)
+        self.shift_zero_to_right: bool = True
 
         # plot focus: show only specified bars, all if empty
-        self.focus: set[int] = set[int]()
-        self.focus_neighbors: int = 1
-        self.focus_spacing_scale: float = 0.62 # TODO
-        self.focus_spacing: float = 1 # TODO use focus_spacing_scale for a relative size
+        self.focus: set[int] = focus
+        self.sections: dict[int, tuple[set[int], float]] = {}
+        self.focus_neighbor_extent: int = 1
 
         # plot native dimensions
-        self.x_min: float = 0
-        self.x_max: float = 0
-        self.y_min: float = 0
-        self.y_max: float = 0
+        self.x_min: int = 0
+        self.x_max: int = 0
+        self.y_min: int = 0
+        self.y_max: int = 0
         self.__fit_to_cbf() # determine from data
 
         self.x_scale: float = self.scene_dimension.width() / (self.x_max - self.x_min) # size of an x-unit
         self.y_scale: float = self.scene_dimension.height() / (self.y_max - self.y_min) # size of an y-unit
 
+        # focus config
+        self.focus_spacing_scale: float = 2.0 # TODO
+        self.focus_spacing: float = self.x_scale * self.focus_spacing_scale
+
+        self.focus_arrows: list[Arrow] = []
+
         # bar config
         self.bars: dict[int, QGraphicsRectItem] = {}
-        self.bar_border_color: QColor = QColor(Qt.GlobalColor.green)
+
+        self.bar_border_color: QColor = QColor(32, 128, 24)
         self.bar_border_width: float = 0.0 # TODO
         self.bar_border_pen: QPen = QPen(self.bar_border_color, self.bar_border_width)
-        self.bar_infill_color: QColor = QColor(Qt.GlobalColor.darkGreen)
+        self.bar_infill_color: QColor = QColor(24, 96, 16)
         self.bar_infill_brush: QBrush = QBrush(self.bar_infill_color)
 
+        self.bar_sec_border_color: QColor = QColor(24, 96, 16)
+        self.bar_sec_border_width: float = 0.0 # TODO
+        self.bar_sec_border_pen: QPen = QPen(self.bar_sec_border_color, self.bar_sec_border_width)
+        self.bar_sec_infill_color: QColor = QColor(16, 32, 8)
+        self.bar_sec_infill_brush: QBrush = QBrush(self.bar_sec_infill_color)
+
+        self.bar_interval: float = self.x_scale
         self.bar_width_scale: float = 0.62 # TODO
-        self.bar_width: float = self.x_scale * self.bar_width_scale
+        self.bar_width: float = self.bar_interval * self.bar_width_scale
         self.bar_spacing_scale: float = 1.0 - self.bar_width_scale
-        self.bar_spacing: float = self.x_scale * self.bar_spacing_scale
+        self.bar_spacing: float = self.bar_interval * self.bar_spacing_scale
 
         # axis config
         self.axis_color: QColor = QColor(Qt.GlobalColor.white)
@@ -358,7 +282,7 @@ class CBFPlot(QGraphicsWidget):
         self.axis_marker_label_brush: QBrush = QBrush(self.axis_marker_color)
         self.axis_marker_label_spacing: float = 1.0 # TODO
         self.axis_marker_label_font_size: int = 1 # TODO
-
+        
         # y axis config
         self.yaxis_line: QGraphicsLineItem = QGraphicsLineItem(parent=self)
         self.yaxis_arrow_len: float = (self.y_max - self.y_min) * self.y_scale * self.axis_arrow_scale
@@ -367,8 +291,20 @@ class CBFPlot(QGraphicsWidget):
         self.yaxis_marker_labels: dict[int, QGraphicsSimpleTextItem] = {}
 
         # x axis config
+        self.xaxis_lines: list[QGraphicsLineItem] = []
+        self.xaxis_arrow_len: float = (self.y_max - self.y_min) * self.y_scale * self.axis_arrow_scale
+        self.xaxis_arrow: Arrow = Arrow(QPoint(), QPoint(0, -1), int(self.axis_marker_width))
+        self.xaxis_markers: dict[int, QGraphicsLineItem] = {}
+        self.xaxis_marker_labels: dict[int, QGraphicsSimpleTextItem] = {}
 
-        self.__create_plot()
+        self.__cluster_focus_sections()
+        self.__create_plot_new()
+
+        self.setFlags(
+            QGraphicsItem.GraphicsItemFlag.ItemIsMovable |
+            QGraphicsItem.GraphicsItemFlag.ItemIsSelectable |
+            QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges
+        )
 
     def __fit_to_cbf(self) -> None:
 
@@ -383,11 +319,12 @@ class CBFPlot(QGraphicsWidget):
 
         self.x_max = self.cbf.m
         self.y_max = 0
-        for bucket in self.cbf.bit_array:
+        for arg, bucket in enumerate(self.cbf.bit_array):
+            if self.focus and arg not in self.focus and not any([ abs(f - arg) <= self.focus_neighbor_extent for f in self.focus]):
+                continue
             value = ba2int(bucket)
             if value > self.y_max:
                 self.y_max = value
-
 
     def __create_plot(self) -> None:
         if not self.cbf:
@@ -416,22 +353,48 @@ class CBFPlot(QGraphicsWidget):
             parent=self
         )
 
+    def __cluster_focus_sections(self) -> None:
+        self.sections = {}
+
+        if not self.focus:
+            return
+
+        sorted_focus: list[int] = sorted(self.focus)
+
+        section_deno: int = sorted_focus[0]
+        for arg in sorted_focus:
+            if self.sections and sorted(self.sections[section_deno][0])[-1] + (2 * self.focus_neighbor_extent) >= arg:
+                self.sections[section_deno][0].add(arg)
+            else: # new section
+                self.sections[arg] = ({ arg }, 0 )
+                section_deno = arg
+        
+        for sdeno, s in self.sections.items():
+            sorted_section: list[int] = sorted(s[0])
+
+            section_first_neighbor: int = max(sorted_section[0] - self.focus_neighbor_extent, self.x_min)
+            section_last_neighbor: int = min(sorted_section[-1] + self.focus_neighbor_extent, self.x_max)
+            section_neighbor_count: int = 1 + section_last_neighbor - section_first_neighbor
+            section_bars_size: float = self.bar_interval * section_neighbor_count
+            section_size: float = section_bars_size + (0 if self.shift_zero_to_right and section_first_neighbor == 0 else self.focus_spacing)
+
+            self.sections[sdeno] = (s[0], section_size)
+
+        print(f"sections: {self.sections}")
+
     def __create_plot_new(self) -> None:
         if not self.cbf:
             return
 
         self.bars: dict[int, QGraphicsRectItem] = {}
         for arg, bucket in enumerate(self.cbf.bit_array):
+            if self.focus and arg not in self.focus and not any([ abs(f - arg) <= self.focus_neighbor_extent for f in self.focus]):
+                continue
             value = ba2int(bucket)
-            self.__set_bar(arg, value)
+            self.__set_bar(arg, value, primary=(not self.focus or arg in self.focus))
 
-        x_axis: CBFPlotAxis = CBFPlotAxis(
-            min_value=0,
-            max_value=self.cbf.m,
-            vertical=False,
-            parent=self
-        )
-        self.__set_yaxis(0, 10 * math.ceil(self.y_max / 10))
+        self.__set_xaxis(0, self.cbf.m, marker_spacing=50)
+        self.__set_yaxis(0, 10 * math.ceil(self.y_max / 10), marker_spacing=200)
 
     def __yaxis_pos(self, value: int) -> float:
         assert value >= self.y_min
@@ -440,16 +403,194 @@ class CBFPlot(QGraphicsWidget):
         ymin_axis_offset: float = 0.0 * self.y_scale # start at y_min normally
         return -1.0 * (value - self.y_min) * self.y_scale + ymin_axis_offset
 
+    def __xaxis_zero_shift(self) -> bool:
+        mag: int = (self.x_max - self.x_min)
+        for focus in sorted(self.focus):
+            if abs(focus) > mag:
+                break
+            mag = abs(focus)
+            if mag <= self.focus_neighbor_extent:
+                return self.shift_zero_to_right
+        else:
+            return self.shift_zero_to_right and (self.x_min == 0)
+        return False
 
     def __xaxis_pos(self, argument: int) -> float:
         assert argument >= self.x_min
         assert argument <= self.x_max
 
-        xmin_axis_offset: float = 1.0 * self.x_scale # set min x arg to first bar, instead of on the y axis
-        return (argument - self.x_min) * self.x_scale + xmin_axis_offset
+        zero_offset: float = self.bar_interval if self.__xaxis_zero_shift() else 0
+        xpos: float = zero_offset
 
-    def __set_xaxis(self, min: float = 0, max: float = 10, marker_spacing: float = 10) -> None:
-        pass
+        if not self.focus or not self.sections:
+            xpos_plot_local: int = argument - self.x_min
+            xpos += self.bar_interval * xpos_plot_local
+            return xpos
+        else:
+            closest_section_focus: tuple[int, int, int] = (0, 0, 0) # section, focus, neighbor
+
+            sorted_sections: list[tuple[int, tuple[set[int], float]]] = sorted(self.sections.items())
+            sorted_sections_break: bool = False
+            for sitem in sorted_sections:
+                sdeno, s = sitem
+
+                sorted_section: list[int] = sorted(s[0])
+                if argument + self.focus_neighbor_extent < sdeno:
+                    #TODO: interpolate if needed
+                    break
+                if argument > sorted_section[-1] + self.focus_neighbor_extent:
+                    continue
+
+                # argument in range of section
+                
+                best_focus_dist: int = (self.x_max - self.x_min)
+                for focus in sorted_section:
+                    if argument + self.focus_neighbor_extent < focus:
+                        #TODO: interpolate if needed
+                        sorted_sections_break = True
+                        break
+                    # skip all foci that do not have argument in their upper neighborhood
+                    if argument > focus + self.focus_neighbor_extent:
+                        continue
+                    # reached a focus with argument in its neighborhood
+                    # assign argument to closest neighborhood
+                    current_focus_dist: int = abs(focus - argument)
+                    if best_focus_dist > current_focus_dist:
+                        closest_section_focus = (sdeno, focus, argument)
+                        best_focus_dist = current_focus_dist
+
+                if sorted_sections_break:
+                    break
+            
+            for sitem in sorted_sections:
+                sdeno, s = sitem
+                section_size: float = s[1]
+                sorted_section: list[int] = sorted(s[0])
+
+                # accumulate precomputed section sizes for all lower sections
+                if closest_section_focus[0] > sorted_section[-1] + self.focus_neighbor_extent: # section upper bound check
+                    xpos += section_size
+                    continue
+
+                # omit focus_spacing when lowest neighbor is 0
+                section_spacer: float = 0 if (self.shift_zero_to_right and sorted_section[0] == self.focus_neighbor_extent) else self.focus_spacing
+                
+                # hit section reached
+                bar_count: int = abs(closest_section_focus[2] - max((sdeno - self.focus_neighbor_extent), self.x_min))
+                bars_size: float = self.bar_interval * bar_count
+
+                xpos += section_spacer + bars_size
+                break
+            
+            return xpos
+    
+    def __set_xaxis_marker(self, argument: int) -> None:
+        marker: QGraphicsLineItem = QGraphicsLineItem(
+            self.__xaxis_pos(argument), - self.axis_marker_width / 2,
+            self.__xaxis_pos(argument), + self.axis_marker_width / 2,
+            parent=self
+        )
+        marker.setPen(self.axis_line_pen)
+        self.xaxis_markers[argument] = marker
+
+        marker_label: QGraphicsSimpleTextItem = QGraphicsSimpleTextItem(
+            f"{argument}",
+            parent=self
+        )
+        marker_label.setBrush(self.axis_marker_label_brush)
+        marker_label_font: QFont = marker_label.font()
+        marker_label_font.setPointSize(self.axis_marker_label_font_size)
+
+        text_aabb: QRectF = marker_label.boundingRect()
+        marker_label.setPos(
+            + self.__xaxis_pos(argument) - (text_aabb.width() / 2),
+            + (self.axis_marker_width / 2) + self.axis_marker_label_spacing
+        )
+        self.xaxis_marker_labels[argument] = marker_label
+
+    def __set_xaxis_spacer(self, x_pos: float) -> float:
+        spacer_line_count: int = 3
+        spacer_unit: float = self.focus_spacing / (2 * spacer_line_count + 1)
+
+        spacer_line: QLineF = QLineF(
+            0, 0,
+            spacer_unit, 0,
+        )
+
+        xpos: float = x_pos + spacer_unit # start segement with empty unit
+
+        for _ in range(spacer_line_count):
+            self.xaxis_lines.append(QGraphicsLineItem(spacer_line, parent=self))
+            self.xaxis_lines[-1].setPen(self.axis_line_pen)
+            self.xaxis_lines[-1].setPos(xpos, 0)
+            xpos += spacer_unit # spacer_line
+            xpos += spacer_unit # empty unit
+
+        return (xpos - x_pos)
+
+    def __set_xaxis(self, arg_min: float = 0, arg_max: float = 10, marker_spacing: int = 10) -> None:
+        self.xaxis_lines = []
+        self.xaxis_markers = {}
+        self.xaxis_marker_labels = {}
+        
+        x_pos: float = 0.0
+
+        segment0_xsize: float = 0
+        if not self.focus or not self.sections:
+            segment0_xsize = self.__xaxis_pos(int(self.x_max))
+        else:
+            segment0_xsize = self.__xaxis_pos(sorted(self.sections.keys())[0]) - (self.bar_interval / 2)
+
+        segment0: QLineF = QLineF(
+            x_pos, 0,
+            x_pos + segment0_xsize, 0,
+        )
+        self.xaxis_lines.append(QGraphicsLineItem(segment0, parent=self))
+        self.xaxis_lines[-1].setPen(self.axis_line_pen)
+        x_pos += segment0_xsize
+
+        if not self.focus:
+            self.__set_xaxis_marker(self.x_min)
+            self.__set_xaxis_marker(self.x_max)
+            begin_marker_value: int = self.x_min + (marker_spacing - (self.x_min % marker_spacing))
+            for i in range((self.x_max - self.x_min) // marker_spacing):
+                marker_value: int = begin_marker_value * (i + 1)
+                self.__set_xaxis_marker(marker_value)
+        else:
+            sorted_sections: list[tuple[int, tuple[set[int], float]]] = sorted(self.sections.items())
+
+            for sitem in sorted_sections:
+                sdeno, s = sitem
+
+                sorted_section: list[int] = sorted(s[0])
+                section_first_neighbor: int = max(sorted_section[0] - self.focus_neighbor_extent, self.x_min)
+                section_last_neighbor: int = min(sorted_section[-1] + self.focus_neighbor_extent, self.x_max)
+                section_neighbor_count: int = 1 + section_last_neighbor - section_first_neighbor
+
+                if section_first_neighbor != 0:
+                    x_pos += self.__set_xaxis_spacer(x_pos)
+
+                for bar in range(math.floor(section_first_neighbor), int(section_first_neighbor) + int(section_neighbor_count)):
+                    self.__set_xaxis_marker(bar)
+
+                segmenti: QLineF = QLineF(
+                    0, 0,
+                    self.__xaxis_pos(section_last_neighbor) - self.__xaxis_pos(section_first_neighbor) + self.bar_interval, 0,
+                )
+                self.xaxis_lines.append(QGraphicsLineItem(segmenti, parent=self))
+                self.xaxis_lines[-1].setPen(self.axis_line_pen)
+                self.xaxis_lines[-1].setPos(self.__xaxis_pos(section_first_neighbor) - (self.bar_interval / 2), 0)
+
+                x_pos = self.__xaxis_pos(section_last_neighbor) + (self.bar_interval / 2)
+
+        self.xaxis_arrow: Arrow = Arrow(
+            QPointF(0, 0),
+            QPointF(int(self.xaxis_arrow_len), 0),
+            int(self.axis_marker_width),
+            line_pen=self.axis_line_pen,
+            parent=self
+        )
+        self.xaxis_arrow.setPos(x_pos, 0)
 
     def __set_yaxis_marker(self, value: int) -> None:
         marker: QGraphicsLineItem = QGraphicsLineItem(
@@ -476,26 +617,25 @@ class CBFPlot(QGraphicsWidget):
         self.yaxis_marker_labels[value] = marker_label
 
     def __set_yaxis(self, min: float = 0, max: float = 10, marker_spacing: int = 10) -> None: #TODO args unused?!
+        self.yaxis_markers = {}
+        self.yaxis_marker_labels = {}
+
         yaxis_len: float = (self.y_max - self.y_min) * self.y_scale
 
-        self.arrow: Arrow = Arrow(
-            QPoint(0, - int(yaxis_len)),
-            QPoint(0, - int(yaxis_len) - int(self.yaxis_arrow_len)),
+        self.yaxis_arrow: Arrow = Arrow(
+            QPointF(0, - yaxis_len),
+            QPointF(0, - yaxis_len - self.yaxis_arrow_len),
             int(self.axis_marker_width),
             line_pen=self.axis_line_pen,
             parent=self
         )
 
-        yaxis_line: QLine = QLine(
+        yaxis_line: QLineF = QLineF(
             0, 0,
-            0, -int(yaxis_len),
+            0, -yaxis_len,
         )
         self.yaxis_line = QGraphicsLineItem(yaxis_line, parent=self)
         self.yaxis_line.setPen(self.axis_line_pen)
-        
-
-        self.yaxis_markers = {}
-        self.yaxis_marker_labels = {}
 
         self.__set_yaxis_marker(math.floor(self.y_min))
         self.__set_yaxis_marker(math.ceil(self.y_max))
@@ -504,18 +644,20 @@ class CBFPlot(QGraphicsWidget):
             marker_value: int = begin_marker_value * (i + 1)
             self.__set_yaxis_marker(marker_value)
 
-    def __set_bar(self, argument: int, value: int) -> None:
+    def __set_bar(self, argument: int, value: int, primary: bool = True) -> None:
         bar_rect_item: QGraphicsRectItem = QGraphicsRectItem(parent=self)
-        bar_rect_item.setPen(self.bar_border_pen)        
-        bar_rect_item.setBrush(self.bar_infill_brush)
+        bar_rect_item.setPen(self.bar_border_pen if primary else self.bar_sec_border_pen)        
+        bar_rect_item.setBrush(self.bar_infill_brush if primary else self.bar_sec_infill_brush)
         # hcentered bar, bot to top (-y)
         bar_rect: QRectF = QRectF(
-            - self.bar_width / 2, self.__yaxis_pos(0),
-            + self.bar_width / 2, self.__yaxis_pos(value)
+            0,              self.__yaxis_pos(0),
+            self.bar_width, self.__yaxis_pos(value)
         )
         bar_rect_item.setRect(bar_rect)
-        bar_rect_item.setPos(self.__xaxis_pos(argument), self.__yaxis_pos(0))
+        bar_rect_item.setPos(self.__xaxis_pos(argument) - (self.bar_width / 2), self.__yaxis_pos(0))
+        bar_rect_item.setZValue(10)
         self.bars[argument] = bar_rect_item
+        # print(f"Bar [{argument},{value}] at posx: {self.__xaxis_pos(argument)}")
 
     
 

@@ -6,7 +6,7 @@ from PySide6.QtCore import (
     QPoint, QPointF,
     QRect, QRectF,
     Qt,
-    QLine,
+    QLineF,
 )
 from PySide6.QtGui import (
     QVector2D,
@@ -39,9 +39,9 @@ class Arrow(QGraphicsItem):
 
     def __init__(self,
                  /,
-                 begin: QPoint,
-                 end: QPoint,
-                 width: int,
+                 begin: QPoint | QPointF,
+                 end: QPoint | QPointF,
+                 width: float,
                  angle: int = 45,
                  line_pen: QPen = QPen(
                             QColor(Qt.GlobalColor.white),
@@ -52,12 +52,12 @@ class Arrow(QGraphicsItem):
                  parent: QGraphicsItem | None = None) -> None:
         super().__init__(parent)
 
-        self.begin: QPoint = begin
-        self.end: QPoint = end
+        self.begin: QPointF = QPointF(begin.x(), begin.y())
+        self.end: QPointF = QPointF(end.x(), end.y())
 
         self.line_pen: QPen = line_pen
         self.main_line: QGraphicsLineItem = QGraphicsLineItem(
-            QLine(
+            QLineF(
                 begin,
                 end,
             ),
@@ -65,7 +65,7 @@ class Arrow(QGraphicsItem):
         )
         self.main_line.setPen(self.line_pen)
 
-        v: QVector2D = QVector2D(end - begin)
+        v: QVector2D = QVector2D(self.end - self.begin)
         v.normalize()
 
         a_rad: float = (angle / 180) * math.pi # deg to rad
@@ -73,15 +73,15 @@ class Arrow(QGraphicsItem):
         wings_on_main: float = w_he / math.tan(a_rad) # length of wings on main line
         wings_on_main_v: QVector2D = v * wings_on_main
 
-        v_r: QVector2D = QVector2D(v.y(), - v.x()) # rotate cw half pi
-        v_l: QVector2D = QVector2D(- v.y(), v.x()) # rotate ccw half pi
+        v_r: QVector2D = QVector2D(+ v.y(), - v.x()) # rotate cw half pi
+        v_l: QVector2D = QVector2D(- v.y(), + v.x()) # rotate ccw half pi
 
-        self.right: QPoint = (QVector2D(end) - wings_on_main_v + v_l * w_he).toPoint() # I miss glm alr
-        self.left: QPoint = (QVector2D(end) - wings_on_main_v + v_r * w_he).toPoint()
+        self.right: QPointF = (QVector2D(self.end) - wings_on_main_v + v_l * w_he).toPointF() # I miss glm alr
+        self.left: QPointF = (QVector2D(self.end) - wings_on_main_v + v_r * w_he).toPointF()
 
         self.arrow_lline: QGraphicsLineItem = QGraphicsLineItem(
-            QLine(
-                end,
+            QLineF(
+                self.end,
                 self.right
             ),
             parent=self
@@ -89,8 +89,8 @@ class Arrow(QGraphicsItem):
         self.arrow_lline.setPen(self.line_pen)
 
         self.arrow_rline: QGraphicsLineItem = QGraphicsLineItem(
-            QLine(
-                end,
+            QLineF(
+                self.end,
                 self.left
             ),
             parent=self

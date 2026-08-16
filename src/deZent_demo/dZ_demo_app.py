@@ -58,10 +58,10 @@ class App(QApplication):
         w.setScale(0.1)
 
         cbf: CBloomFilter = CBloomFilter.create(3, 4)
-        for _ in range(0, 4192):
+        for _ in range(0, pow(2, 16)):
             cbf.add(random.randint(0,256))
 
-        self.cbf_plot: CBFPlot = CBFPlot(cbf)
+        self.cbf_plot: CBFPlot = CBFPlot(cbf, focus = { 1, 2, 4, 64, 512, cbf.m })
         self.scene.addItem(self.cbf_plot)
         self.cbf_plot.setPos(0, 550)
 
