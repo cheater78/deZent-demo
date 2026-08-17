@@ -186,5 +186,5 @@ class CBloomFilter(CntDataStructure):
 
 	# TODO: maybe define [hash for k] once -> return cbf indices
 
-	def inspect_item_indices(self, item: MeasurementKey) -> list[int]:
-		return [self.__cfb_hash__(item, i) for i in range(self.k)]
+	def inspect_item_indices(self, item: MeasurementKey) -> set[int]:
+		return { self.__cfb_hash__(item, i) for i in range(self.k) }

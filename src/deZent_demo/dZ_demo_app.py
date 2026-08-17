@@ -49,6 +49,8 @@ class App(QApplication):
 
         self.__setup_default_gws__()
 
+        self.scene.setSceneRect(-8.0, -8.0, 1500, 800)
+
         self.nrb = QPushButton("Next Round")
         def next_round():
             self.env.advance(by=timedelta(minutes=15))
@@ -57,18 +59,40 @@ class App(QApplication):
         w.setPos(self.scene.sceneRect().topLeft())
         w.setScale(0.1)
 
-        cbf: CBloomFilter = CBloomFilter.create(3, 4)
-        for _ in range(0, pow(2, 16)):
-            cbf.add(random.randint(0,256))
+        self.cbf: CBloomFilter = CBloomFilter.create(3, 2)
+        
+        for _ in range(0, pow(2, 10)):
+            self.cbf.add(random.randint(0,1024))
 
-        self.cbf_plot: CBFPlot = CBFPlot(cbf, focus = { 1, 2, 4, 64, 512, cbf.m })
+        self.cbf_plot: CBFPlot = CBFPlot(self.cbf)
         self.scene.addItem(self.cbf_plot)
-        self.cbf_plot.setPos(0, 550)
+        self.cbf_plot.setPos(512, 128 + self.cbf_plot.sceneBoundingRect().height())
 
-        self.scene.setSceneRect(
-            -500, -500,
-            +10000, +10000
-        )
+        self.cbf_add_key: int = random.randint(0,1024)
+
+        self.cbf_add_button: QPushButton = QPushButton(f"Add to CBF: {self.cbf_add_key}")
+        abw = self.scene.addWidget(self.cbf_add_button)
+        abw.setPos(512, 0)
+        abw.setScale(3)
+        def cbf_add():
+            self.cbf.add(self.cbf_add_key)
+            self.cbf_plot.update_cbf(self.cbf, focus = self.cbf.inspect_item_indices(self.cbf_add_key))
+            self.cbf_plot.setPos(512, 128 + self.cbf_plot.sceneBoundingRect().height())
+        self.cbf_add_button.clicked.connect(cbf_add)
+
+        self.cbf_add_newkey_button: QPushButton = QPushButton(f"Pick new key")
+        nkbw = self.scene.addWidget(self.cbf_add_newkey_button)
+        nkbw.setPos(512 + abw.sceneBoundingRect().width(), 0)
+        nkbw.setScale(3)
+        def cbf_newkey():
+            self.cbf_add_key = random.randint(0,1024)
+            self.cbf_add_button.setText(f"Add to CBF: {self.cbf_add_key}")
+            self.cbf_plot.update_cbf(self.cbf, focus = self.cbf.inspect_item_indices(self.cbf_add_key))
+
+        self.cbf_add_newkey_button.clicked.connect(cbf_newkey)
+
+        self.scene.update()
+        self.view.reset_view()
 
     def run(self) -> int:
         self.network.start()

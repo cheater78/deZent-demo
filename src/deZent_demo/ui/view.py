@@ -90,7 +90,7 @@ class PanningView(QGraphicsView):
         super().mouseReleaseEvent(event)
 
     def reset_view(self) -> None:
-        margin: QSizeF = QSizeF(0.2, 0.2)
+        margin: QSizeF = QSizeF(0.05, 0.05)
 
         items = self.scene().items()
         if not items:

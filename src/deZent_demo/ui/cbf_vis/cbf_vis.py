@@ -220,37 +220,73 @@ class CBFPlot(QGraphicsWidget):
         focus: set[int] = set[int](),
         parent: QGraphicsItem | None = None) -> None:
         super().__init__(parent=parent)
+        self.setFlags(
+            QGraphicsItem.GraphicsItemFlag.ItemIsMovable |
+            QGraphicsItem.GraphicsItemFlag.ItemIsSelectable |
+            QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges
+        )
+        self.__init_plot(cbf, focus)
+        self.__create_plot()
 
+    def __init_plot(self, cbf: CBloomFilter | None = None, focus: set[int] = set[int](), scene_dimensions: QSizeF = QSizeF(800, 300)) -> None:
         self.cbf: CBloomFilter | None = cbf
 
-        self.scene_dimension: QSizeF = QSizeF(30000, 428)
+        self.dimensions: QSizeF = scene_dimensions
+
         self.shift_zero_to_right: bool = True
 
         # plot focus: show only specified bars, all if empty
         self.focus: set[int] = focus
-        self.sections: dict[int, tuple[set[int], float]] = {}
-        self.focus_neighbor_extent: int = 1
+        self.focus_neighbor_extent: int = 3
 
         # plot native dimensions
-        self.x_min: int = 0
-        self.x_max: int = 0
-        self.y_min: int = 0
-        self.y_max: int = 0
-        self.__fit_to_cbf() # determine from data
+        self.__set_logical_size()
 
-        self.x_scale: float = self.scene_dimension.width() / (self.x_max - self.x_min) # size of an x-unit
-        self.y_scale: float = self.scene_dimension.height() / (self.y_max - self.y_min) # size of an y-unit
+        self.focus_spacing_scale: float = 1.6 # TODO
+
+        x_offset: int = self.x_min
+        self.bar_count: int = 0
+        self.focus_spacer_count: int = 0
+        if self.focus:
+            for f in sorted(self.focus):
+                upper: int = f + self.focus_neighbor_extent
+                if upper < x_offset:
+                    continue
+                lower: int = max(x_offset, f - self.focus_neighbor_extent)
+
+                section_zero: bool = lower <= 0 and upper >= 0 and self.shift_zero_to_right
+                if (lower > (x_offset + 1)) and not section_zero:
+                    self.focus_spacer_count += 1
+                elif section_zero:
+                    self.bar_count += 1 # zero offset
+                x_offset = upper
+                self.bar_count += (upper - lower) + 1
+        else:
+            self.bar_count = (self.x_max - self.x_min)
+        
+        self.x_scale: float = self.dimensions.width() / (self.bar_count + (self.focus_spacing_scale * self.focus_spacer_count))
+        self.y_scale: float = self.dimensions.height() / (self.y_max - self.y_min)
 
         # focus config
-        self.focus_spacing_scale: float = 2.0 # TODO
+        
         self.focus_spacing: float = self.x_scale * self.focus_spacing_scale
 
-        self.focus_arrows: list[Arrow] = []
+        self.focus_arrow_scale: float = 0.04 * self.y_max # TODO
+        self.focus_arrow_size: float = self.y_scale * self.focus_arrow_scale
+        self.focus_arrow_width_scale: float = 0.4 # TODO
+        self.focus_arrow_width: float = self.focus_arrow_width_scale * self.x_scale
+        self.focus_arrow_margin_scale: float = 0.03 * self.y_max # TODO
+        self.focus_arrow_margin: float = self.y_scale * self.focus_arrow_margin_scale
+        
+        self.focus_arrow_color: QColor = QColor(Qt.GlobalColor.red)
+        self.focus_arrow_line_width: float = 2 # TODO
+        self.focus_arrow_line_pen: QPen = QPen(self.focus_arrow_color, self.focus_arrow_line_width,
+            Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+        self.focus_arrows: dict[int, Arrow] = {}
 
         # bar config
         self.bars: dict[int, QGraphicsRectItem] = {}
-
-        self.bar_border_color: QColor = QColor(32, 128, 24)
+        self.bar_border_color: QColor = QColor(24, 96, 16)
         self.bar_border_width: float = 0.0 # TODO
         self.bar_border_pen: QPen = QPen(self.bar_border_color, self.bar_border_width)
         self.bar_infill_color: QColor = QColor(24, 96, 16)
@@ -259,7 +295,7 @@ class CBFPlot(QGraphicsWidget):
         self.bar_sec_border_color: QColor = QColor(24, 96, 16)
         self.bar_sec_border_width: float = 0.0 # TODO
         self.bar_sec_border_pen: QPen = QPen(self.bar_sec_border_color, self.bar_sec_border_width)
-        self.bar_sec_infill_color: QColor = QColor(16, 32, 8)
+        self.bar_sec_infill_color: QColor = QColor(24, 64, 16)
         self.bar_sec_infill_brush: QBrush = QBrush(self.bar_sec_infill_color)
 
         self.bar_interval: float = self.x_scale
@@ -296,29 +332,54 @@ class CBFPlot(QGraphicsWidget):
         self.xaxis_arrow: Arrow = Arrow(QPoint(), QPoint(0, -1), int(self.axis_marker_width))
         self.xaxis_markers: dict[int, QGraphicsLineItem] = {}
         self.xaxis_marker_labels: dict[int, QGraphicsSimpleTextItem] = {}
+        self.xaxis_size: float = 0.0
+
+        # focus average
+        self.focus_avg_line: QGraphicsLineItem = QGraphicsLineItem(parent=self)
+        self.focus_avg_line_label: QGraphicsSimpleTextItem = QGraphicsSimpleTextItem(parent=self)
+        self.focus_avg_line_color: QColor = QColor(Qt.GlobalColor.red)
+        self.focus_avg_line_width: float = 1 # TODO
+        self.focus_avg_line_pen: QPen = QPen(self.focus_avg_line_color, self.focus_avg_line_width,
+            Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
+        self.focus_avg_line_label_color: QColor = QColor(Qt.GlobalColor.red)
+        self.focus_avg_line_label_brush: QBrush = QBrush(self.focus_avg_line_label_color)
+        self.focus_avg_line_label_spacing: float = 1 # TODO
 
         self.__cluster_focus_sections()
-        self.__create_plot_new()
 
-        self.setFlags(
-            QGraphicsItem.GraphicsItemFlag.ItemIsMovable |
-            QGraphicsItem.GraphicsItemFlag.ItemIsSelectable |
-            QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges
-        )
+    def set_size(self, x: float, y: float) -> None:
+        self.__clear_plot()
+        self.__init_plot(self.cbf, self.focus, scene_dimensions=QSizeF(x, y))
+        self.__create_plot()
+        self.update()
+        self.scene().update()
 
-    def __fit_to_cbf(self) -> None:
+    def __clear_plot(self) -> None:
+        for item in self.childItems():
+            self.scene().removeItem(item)
+        
+    def clear_plot(self) -> None:
+        self.__clear_plot()
+        self.__init_plot()
 
-        self.x_min = 0
-        self.y_min = 0
-
-        self.x_max = 0
-        self.y_max = 0
+    def update_cbf(self, cbf: CBloomFilter, focus: set[int] = set[int]()) -> None:
+        self.__clear_plot()
+        self.__init_plot(cbf, focus)
+        self.__create_plot()
+        self.update()
+        self.scene().update()
+    
+    def __set_logical_size(self) -> None:
+        # reset to defaults
+        self.x_min: int = 0
+        self.y_min: int = 0
+        self.x_max: int = 5 # some non zero x axis size
+        self.y_max: int = 2 # some non zero y axis size
 
         if not self.cbf:
             return
 
         self.x_max = self.cbf.m
-        self.y_max = 0
         for arg, bucket in enumerate(self.cbf.bit_array):
             if self.focus and arg not in self.focus and not any([ abs(f - arg) <= self.focus_neighbor_extent for f in self.focus]):
                 continue
@@ -326,35 +387,8 @@ class CBFPlot(QGraphicsWidget):
             if value > self.y_max:
                 self.y_max = value
 
-    def __create_plot(self) -> None:
-        if not self.cbf:
-            return
-        
-        bars: list[CBFPlotBar] = []
-        max_y: int = 0
-        for i, bucket in enumerate(self.cbf.bit_array):
-            value = ba2int(bucket)
-            bar = CBFPlotBar(value, self)
-            bar.setPos(i * (bar.bar_width + self.bar_spacing) + self.bar_spacing / 2, 0)
-            bars.append(bar)
-            if value > max_y:
-                max_y = value
-
-        x_axis: CBFPlotAxis = CBFPlotAxis(
-            min_value=0,
-            max_value=self.cbf.m,
-            vertical=False,
-            parent=self
-        )
-        y_axis: CBFPlotAxis = CBFPlotAxis(
-            min_value=0,
-            max_value=10 * math.ceil(max_y / 10),
-            vertical=True,
-            parent=self
-        )
-
     def __cluster_focus_sections(self) -> None:
-        self.sections = {}
+        self.sections: dict[int, tuple[set[int], float]] = {}
 
         if not self.focus:
             return
@@ -382,19 +416,22 @@ class CBFPlot(QGraphicsWidget):
 
         print(f"sections: {self.sections}")
 
-    def __create_plot_new(self) -> None:
+    def __create_plot(self) -> None:
         if not self.cbf:
             return
-
-        self.bars: dict[int, QGraphicsRectItem] = {}
+        
         for arg, bucket in enumerate(self.cbf.bit_array):
             if self.focus and arg not in self.focus and not any([ abs(f - arg) <= self.focus_neighbor_extent for f in self.focus]):
                 continue
             value = ba2int(bucket)
             self.__set_bar(arg, value, primary=(not self.focus or arg in self.focus))
+            if self.focus and arg in self.focus:
+                self.__set_bar_marker(arg, value)
 
-        self.__set_xaxis(0, self.cbf.m, marker_spacing=50)
-        self.__set_yaxis(0, 10 * math.ceil(self.y_max / 10), marker_spacing=200)
+        self.__set_xaxis()
+        self.__set_yaxis(max(1, math.floor((self.y_max - self.y_min) / 10)))
+
+        self.__set_focus_avg()
 
     def __yaxis_pos(self, value: int) -> float:
         assert value >= self.y_min
@@ -473,7 +510,7 @@ class CBFPlot(QGraphicsWidget):
                     continue
 
                 # omit focus_spacing when lowest neighbor is 0
-                section_spacer: float = 0 if (self.shift_zero_to_right and sorted_section[0] == self.focus_neighbor_extent) else self.focus_spacing
+                section_spacer: float = 0 if (self.shift_zero_to_right and sorted_section[0] <= self.focus_neighbor_extent) else self.focus_spacing
                 
                 # hit section reached
                 bar_count: int = abs(closest_section_focus[2] - max((sdeno - self.focus_neighbor_extent), self.x_min))
@@ -528,7 +565,7 @@ class CBFPlot(QGraphicsWidget):
 
         return (xpos - x_pos)
 
-    def __set_xaxis(self, arg_min: float = 0, arg_max: float = 10, marker_spacing: int = 10) -> None:
+    def __set_xaxis(self, marker_spacing: int = 50) -> None:
         self.xaxis_lines = []
         self.xaxis_markers = {}
         self.xaxis_marker_labels = {}
@@ -539,7 +576,7 @@ class CBFPlot(QGraphicsWidget):
         if not self.focus or not self.sections:
             segment0_xsize = self.__xaxis_pos(int(self.x_max))
         else:
-            segment0_xsize = self.__xaxis_pos(sorted(self.sections.keys())[0]) - (self.bar_interval / 2)
+            segment0_xsize = 0
 
         segment0: QLineF = QLineF(
             x_pos, 0,
@@ -616,7 +653,7 @@ class CBFPlot(QGraphicsWidget):
         )
         self.yaxis_marker_labels[value] = marker_label
 
-    def __set_yaxis(self, min: float = 0, max: float = 10, marker_spacing: int = 10) -> None: #TODO args unused?!
+    def __set_yaxis(self, marker_spacing: int = 1) -> None:
         self.yaxis_markers = {}
         self.yaxis_marker_labels = {}
 
@@ -645,7 +682,7 @@ class CBFPlot(QGraphicsWidget):
             self.__set_yaxis_marker(marker_value)
 
     def __set_bar(self, argument: int, value: int, primary: bool = True) -> None:
-        bar_rect_item: QGraphicsRectItem = QGraphicsRectItem(parent=self)
+        bar_rect_item: QGraphicsRectItem = self.bars.get(argument, QGraphicsRectItem(parent=self))
         bar_rect_item.setPen(self.bar_border_pen if primary else self.bar_sec_border_pen)        
         bar_rect_item.setBrush(self.bar_infill_brush if primary else self.bar_sec_infill_brush)
         # hcentered bar, bot to top (-y)
@@ -655,10 +692,71 @@ class CBFPlot(QGraphicsWidget):
         )
         bar_rect_item.setRect(bar_rect)
         bar_rect_item.setPos(self.__xaxis_pos(argument) - (self.bar_width / 2), self.__yaxis_pos(0))
-        bar_rect_item.setZValue(10)
+        bar_rect_item.setZValue(-1)
         self.bars[argument] = bar_rect_item
         # print(f"Bar [{argument},{value}] at posx: {self.__xaxis_pos(argument)}")
 
-    
+    def __set_bar_marker(self, argument: int, value: int) -> None:
+        arrow: Arrow = Arrow(
+            QPointF(0, - self.focus_arrow_size),
+            QPointF(0, 0),
+            width=self.focus_arrow_width,
+            line_pen=self.focus_arrow_line_pen,
+            parent=self
+        )
+        arrow.setPos(self.__xaxis_pos(argument), self.__yaxis_pos(self.y_max) - self.focus_arrow_size - self.focus_arrow_margin)
+        arrow.setZValue(1)
+        self.focus_arrows[argument] = arrow
+
+    def __set_focus_avg(self) -> None:
+        if not self.focus or not self.cbf:
+            return
+        value: int = self.y_max + 1
+        arg: int = 0
+        for f in sorted(self.focus):
+            bucket_v: int = ba2int(self.cbf.bit_array[f])
+            if bucket_v < value:
+                value = bucket_v
+                arg = f
 
 
+        # lower_focus_neighbor: int = max(self.x_min, min(self.focus) - self.focus_neighbor_extent) # TODO obsolete?
+        upper_focus_neighbor: int = min(self.x_max, max(self.focus) + self.focus_neighbor_extent)
+
+        focus_avg_line_size: float = self.__xaxis_pos(upper_focus_neighbor) + (self.bar_interval / 2)
+        focus_avg_line: QLineF = QLineF(
+            0, 0,
+            focus_avg_line_size, 0,
+        )
+        self.focus_avg_line = QGraphicsLineItem(focus_avg_line, parent=self)
+        self.focus_avg_line.setPen(self.focus_avg_line_pen) # TODO
+        self.focus_avg_line.setPos(0, self.__yaxis_pos(value))
+        self.focus_avg_line.setZValue(-0.1)
+
+        self.focus_avg_line_label = QGraphicsSimpleTextItem(
+            f"{value}",
+            parent=self
+        )
+        self.focus_avg_line_label.setBrush(self.focus_avg_line_label_brush)
+        label_font: QFont = self.focus_avg_line_label.font()
+        label_font.setPointSize(self.axis_marker_label_font_size)
+
+        text_aabb: QRectF = self.focus_avg_line_label.boundingRect()
+        self.focus_avg_line_label.setPos(
+            self.__xaxis_pos(arg) - (text_aabb.width() / 2),
+            self.__yaxis_pos(value) + self.focus_avg_line_label_spacing
+        )
+        self.focus_avg_line_label.setZValue(-0.1)
+
+    @override
+    def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, /, widget: QWidget | None = None) -> None:
+        # painter.drawRect(self.boundingRect())
+        return super().paint(painter, option, widget)
+
+    @override
+    def boundingRect(self) -> QRectF:
+        aabb: QRectF = QRectF(
+            0, 0,
+            self.dimensions.width(), - self.dimensions.height()
+        )
+        return aabb.normalized()
