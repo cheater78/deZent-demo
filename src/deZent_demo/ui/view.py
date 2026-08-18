@@ -24,6 +24,7 @@ class PanningView(QGraphicsView):
             QGraphicsView.ViewportAnchor.NoAnchor
         )
 
+        self.pan_button: Qt.MouseButton = Qt.MouseButton.RightButton
         self._panning: bool = False
         self._last_mouse: QPointF = QPointF()
 
@@ -47,7 +48,7 @@ class PanningView(QGraphicsView):
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
 
-        if event.button() == Qt.MouseButton.MiddleButton:
+        if event.button() == self.pan_button:
             self._panning = True
             self._last_mouse = event.position()
             self.setCursor(Qt.CursorShape.ClosedHandCursor)
@@ -81,7 +82,7 @@ class PanningView(QGraphicsView):
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
 
-        if event.button() == Qt.MouseButton.MiddleButton:
+        if event.button() == self.pan_button:
             self._panning = False
             self.setCursor(Qt.CursorShape.ArrowCursor)
             event.accept()

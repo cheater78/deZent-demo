@@ -66,23 +66,23 @@ class App(QApplication):
 
         self.cbf_plot: CBFPlot = CBFPlot(self.cbf)
         self.scene.addItem(self.cbf_plot)
-        self.cbf_plot.setPos(512, 128 + self.cbf_plot.sceneBoundingRect().height())
+        self.cbf_plot.setPos(32, 128 + self.cbf_plot.sceneBoundingRect().height())
 
         self.cbf_add_key: int = random.randint(0,1024)
 
         self.cbf_add_button: QPushButton = QPushButton(f"Add to CBF: {self.cbf_add_key}")
         abw = self.scene.addWidget(self.cbf_add_button)
-        abw.setPos(512, 0)
+        abw.setPos(32, 0)
         abw.setScale(3)
         def cbf_add():
             self.cbf.add(self.cbf_add_key)
             self.cbf_plot.update_cbf(self.cbf, focus = self.cbf.inspect_item_indices(self.cbf_add_key))
-            self.cbf_plot.setPos(512, 128 + self.cbf_plot.sceneBoundingRect().height())
+            self.cbf_plot.setPos(32, 128 + self.cbf_plot.sceneBoundingRect().height())
         self.cbf_add_button.clicked.connect(cbf_add)
 
         self.cbf_add_newkey_button: QPushButton = QPushButton(f"Pick new key")
         nkbw = self.scene.addWidget(self.cbf_add_newkey_button)
-        nkbw.setPos(512 + abw.sceneBoundingRect().width(), 0)
+        nkbw.setPos(32 + abw.sceneBoundingRect().width(), 0)
         nkbw.setScale(3)
         def cbf_newkey():
             self.cbf_add_key = random.randint(0,1024)

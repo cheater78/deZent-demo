@@ -311,7 +311,7 @@ class CBFPlot(QGraphicsWidget):
             Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
         self.axis_arrow_scale: float = 0.05
         self.axis_marker_color: QColor = QColor(Qt.GlobalColor.gray)
-        self.axis_marker_width: float = 2 # TODO
+        self.axis_marker_width: float = 5.0 # TODO
         self.axis_marker_pen: QPen = QPen(self.axis_marker_color, self.axis_marker_width,
                     Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
         self.axis_marker_label_color: QColor = QColor(Qt.GlobalColor.gray)
@@ -696,7 +696,7 @@ class CBFPlot(QGraphicsWidget):
         self.bars[argument] = bar_rect_item
         # print(f"Bar [{argument},{value}] at posx: {self.__xaxis_pos(argument)}")
 
-    def __set_bar_marker(self, argument: int, value: int) -> None:
+    def __set_bar_marker(self, argument: int, value: int, on_top: bool = False) -> None:
         arrow: Arrow = Arrow(
             QPointF(0, - self.focus_arrow_size),
             QPointF(0, 0),
@@ -704,7 +704,9 @@ class CBFPlot(QGraphicsWidget):
             line_pen=self.focus_arrow_line_pen,
             parent=self
         )
-        arrow.setPos(self.__xaxis_pos(argument), self.__yaxis_pos(self.y_max) - self.focus_arrow_size - self.focus_arrow_margin)
+        ypos_top: float = self.__yaxis_pos(self.y_max) - self.focus_arrow_size - self.focus_arrow_margin
+        ypos_bar: float = self.__yaxis_pos(value) - self.focus_arrow_size - self.focus_arrow_margin
+        arrow.setPos(self.__xaxis_pos(argument), ypos_top if on_top else ypos_bar)
         arrow.setZValue(1)
         self.focus_arrows[argument] = arrow
 
