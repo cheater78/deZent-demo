@@ -3,11 +3,11 @@ from asyncio import Server, StreamReader, StreamWriter
 import ssl
 from typing import Callable
 
-from deZent_demo.utils.async_thread import AsyncThread
+from deZent_demo.legacy_resolve.async_thread import AsyncThread
 
-from deZent_demo.network.address import NetAddr
-from deZent_demo.network.dhcp import DHCPClient
-from deZent_demo.network.pki import Certificate
+from deZent_demo.legacy_resolve.network.address import NetAddr
+from deZent_demo.legacy_resolve.network.dhcp import DHCPClient
+from deZent_demo.legacy_resolve.network.pki import Certificate
 
 NetworkMessage = bytes
 NetworkMessageCB = Callable[[NetAddr, NetworkMessage], None]

@@ -1,6 +1,6 @@
 
 from deZent_demo.network.address import NetworkNodeID
-from deZent_demo.network.net_node import AbstractNetworkNode
+from deZent_demo.network.abstract_node import AbstractNetworkNode
 
 from deZent_demo.network.protocol import *
 

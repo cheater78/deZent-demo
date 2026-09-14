@@ -1,5 +1,5 @@
 from deZent_demo.utils import utils
-from deZent_demo.network.net_node import *
+from deZent_demo.legacy_resolve.network.net_node import *
 
 default_p2p_bootstrap_node: NetworkNodeIDAddr = NetworkNodeIDAddr(
     NetworkNodeID(0),

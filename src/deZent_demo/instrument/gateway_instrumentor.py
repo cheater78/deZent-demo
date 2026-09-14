@@ -1,7 +1,7 @@
 from enum import auto
 from datetime import datetime
 
-from deZent_demo.network.address import NetworkNodeID
+from deZent_demo.legacy_resolve.network.address import NetworkNodeID
 from deZent_demo.network.protocol import *
 from deZent_demo.ami.measurement_log import RecordLogEntry
 

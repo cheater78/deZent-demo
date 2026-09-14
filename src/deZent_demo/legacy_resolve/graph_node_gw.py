@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
 )
 
 from .graph import *
-from deZent_demo.network.net_node import NetworkNodeID
+from deZent_demo.legacy_resolve.network.net_node import NetworkNodeID
 from .cbf_histogram import *
 
 class GWNode(Node):

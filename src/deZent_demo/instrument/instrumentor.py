@@ -1,10 +1,21 @@
 from enum import Enum
-from typing import Any, ClassVar
+from typing import Any, ClassVar, override
 from collections.abc import Callable
 
 class InstrumentEvent(Enum):
     pass
 InstrumentEventCallback = Callable[..., None]
+
+class InstrumentorGate():
+
+    def __init__(self) -> None:
+        pass
+
+    def release(self) -> None:
+        pass
+
+    def wait(self) -> None:
+        pass
 
 class Instrumentor():
     event_type: ClassVar[type[InstrumentEvent] | None] = None
@@ -13,11 +24,23 @@ class Instrumentor():
     def __init__(self) -> None:
         super().__init__()
         self._instrument_callbacks: dict[InstrumentEvent, InstrumentEventCallback] = { }
+        self._instrument_gates: dict[InstrumentEvent, InstrumentorGate] = { }
+
+    def release_gates(self) -> None:
+        for gate in self._instrument_gates.values():
+            gate.release()
 
     def set_instrument_callback(self, event: InstrumentEvent, callback: InstrumentEventCallback) -> None:
         self._instrument_callbacks[event] = callback
-    
+
+    def set_instrument_gate(self, event: InstrumentEvent, gate: InstrumentorGate) -> None:
+        self._instrument_gates[event] = gate
+
     def call(self, event: InstrumentEvent, *args: Any) -> None:
+        self._call(event, args)
+        self._wait(event)
+     
+    def _call(self, event: InstrumentEvent, *args: Any) -> None:
         # Callbacks are optional, exit early if none was provided
         callback: InstrumentEventCallback | None = self._instrument_callbacks.get(event)
         if callback is None:
@@ -51,7 +74,34 @@ class Instrumentor():
         # finally call
         return callback(*args)
 
-from PySide6.QtCore import Qt, QObject, Signal, QThread, Slot
+    def _wait(self, event: InstrumentEvent) -> None:
+        gate: InstrumentorGate | None = self._instrument_gates.get(event)
+        if gate is None:
+            return
+        return gate.wait()
+
+from PySide6.QtCore import Qt, QObject, Signal, QThread, Slot, QSemaphore
+
+class QtInstrumentorGate(QObject, InstrumentorGate):
+    gate_signal = Signal(InstrumentEvent)
+
+    def __init__(self, parent: QObject | None = None) -> None:
+        super().__init__(parent)
+
+        self.gate: QSemaphore = QSemaphore(0)
+        self.gate_signal.connect(
+            self.release,
+            Qt.ConnectionType.BlockingQueuedConnection,
+        )
+
+    @override
+    @Slot()
+    def release(self) -> None:
+        self.gate.release()
+
+    @override
+    def wait(self) -> None:
+        self.gate.acquire()
 
 '''
     Instrumentor synchronization layer to run all instrumentor callbacks on Qt's main Thread
@@ -70,10 +120,11 @@ class QtThreadSafeInstrumentor(QObject, Instrumentor):
 
     def call(self, event: InstrumentEvent, *args: Any) -> None:
         if QThread.currentThread() == self.thread(): # signaling on the main Thread will deadlock!
-            Instrumentor.call(self, event, *args) # type: ignore , so just call immediately
+            Instrumentor.call(self, event, *args) # type: ignore # so just call immediately
         else:
             self.cb_signal.emit(event, args)
+            Instrumentor._wait(self, event)
 
     @Slot(InstrumentEvent, object) # type: ignore (InstrumentEvent, tuple[Any, ...])
     def _dispatch(self, event: InstrumentEvent, payload: tuple[Any, ...]) -> None:
-        Instrumentor.call(self, event, *payload) # type: ignore
+        Instrumentor._call(self, event, *payload) # type: ignore

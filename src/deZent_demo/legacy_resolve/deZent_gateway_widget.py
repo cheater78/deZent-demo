@@ -1,5 +1,6 @@
 from PySide6.QtWidgets import (
     QWidget,
+    QPushButton
 )
 
 from deZent_demo.zanon.deZent_gateway import *
@@ -8,6 +9,8 @@ from deZent_demo.instrument.deZent_gateway_instrumentor import *
 class deZentGatewayWidget(QWidget):
 
     def __init__(self, deZent_gateway: deZentGateway) -> None:
+        super().__init__()
+
         self.dZgw: deZentGateway = deZent_gateway
         
         self.instrumentor: dZGWInstrumentor = dZGWInstrumentor()
@@ -96,9 +99,18 @@ class deZentGatewayWidget(QWidget):
             self.on_ccc_send_coord_round_begin_to_next
         )
 
-        self.dZgw.set_instrumentor(self.instrumentor)
+        # TODO: build and integrate UI
+
+        self.next_b: QPushButton = QPushButton("next", parent=self)
+        self.next_gate: QtInstrumentorGate = QtInstrumentorGate(parent=self)
+        self.next_b.clicked.connect(self.next_gate.release)
+
+        for event in dZGWInstrumentEvent:
+            self.instrumentor.set_instrument_gate(event, self.next_gate)
 
         # TODO: build and integrate UI
+
+        self.dZgw.set_instrumentor(self.instrumentor)
 
     def on_ccc_round_begin(self, curr_time: datetime) -> None:
         print(f"GW-{self.dZgw.gw_id}: on_ccc_round_begin {curr_time}")

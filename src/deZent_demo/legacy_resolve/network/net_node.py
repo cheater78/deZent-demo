@@ -5,8 +5,8 @@ from typing import cast, Callable
 
 from deZent_demo.utils import cbor_codec
 
-from deZent_demo.network.address import *
-from deZent_demo.network.net_stack import NetworkStack, NetworkMessage
+from deZent_demo.legacy_resolve.network.address import *
+from deZent_demo.legacy_resolve.network.net_stack import NetworkStack, NetworkMessage
 from deZent_demo.network.protocol import *
 from deZent_demo.utils.async_thread import QueueWorkerThread
 
@@ -129,6 +129,9 @@ class VirtualNetwork(QueueWorkerThread[VirtualNetworkMessageTask]):
                  start_immediately: bool = True) -> None:
         self.nodes: dict[NetworkNodeID, VirtualNetworkNode] = { }
         super().__init__(start_immediately)
+
+    def create_node(self, node_id: NetworkNodeID | None = None) -> VirtualNetworkNode:
+        return VirtualNetworkNode(self, node_id)
     
     def add_node(self, node: VirtualNetworkNode) -> None:
         self.nodes[node.id()] = node

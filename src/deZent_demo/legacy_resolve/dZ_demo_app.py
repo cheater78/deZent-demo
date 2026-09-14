@@ -4,29 +4,41 @@ from PySide6.QtWidgets import (
     QApplication,
     QPushButton,
 )
+from PySide6.QtGui import (
+    QColor,
+    QBrush,
+)
 
-from deZent_demo.network.net_node import VirtualNetwork, VirtualNetworkNode
+from deZent_demo.legacy_resolve.network.net_node import VirtualNetwork, VirtualNetworkNode
 from deZent_demo.zanon.deZent_central_entity import *
 from deZent_demo.zanon.deZent_gateway import *
 from deZent_demo.utils.time_env import *
-from deZent_demo.dZ_demo_app import *
+from deZent_demo.delete_me.dZ_demo_app import *
 
-from .ui.window import Window
-from .ui.scene import dZGraphScene
-from .ui.view import PanningView
-from .ui.graph_node_gw import GWNode
-from .ui.deZent_gateway_widget import deZentGatewayWidget
+from .window import Window
+from .scene import dZGraphScene
+from ..view.network_graph.panning_graphics_view import PanningGraphicsView
+from .graph_node_gw import GWNode
+from .deZent_gateway_widget import deZentGatewayWidget
 
-from .ui.cbf_vis.cbf_vis import CBFPlot
+from ..view.counting_bloom_filter_plot.counting_bloom_filter_plot import CBFPlot
 
 from deZent_demo.instrument.gateway_instrumentor import *
 from deZent_demo.instrument.deZent_gateway_instrumentor import *
+
+from PySide6.QtWidgets import (
+    QMainWindow,
+    QGraphicsView,
+    QWidget,
+    QStackedLayout,
+
+)
 
 class App(QApplication):
 
     def __init__(self) -> None:
         super().__init__(sys.argv)
-        
+
         self.network: VirtualNetwork = VirtualNetwork(start_immediately=False)
         self.start_time: datetime = datetime.fromisoformat("2026-01-01")
         self.env: SimTimeEnv = SimTimeEnv(self.start_time)
@@ -40,16 +52,23 @@ class App(QApplication):
         self.gws: list[deZentGateway] = []
         self.gw_wgs: list[deZentGatewayWidget] = []
 
+        # Scene config
+        scene_aspect: float = 9 / 16
+        scene_xsize: float = 2000
+        scene_ysize: float = scene_xsize * scene_aspect
+
         self.scene: dZGraphScene = dZGraphScene()
-        self.view: PanningView = PanningView(self.scene)
+        self.scene.setBackgroundBrush(QBrush(QColor(128,128,128)))
+        self.scene.setSceneRect(0, 0, scene_xsize, scene_ysize)
+        self.view: PanningGraphicsView = PanningGraphicsView(self.scene)
+        self.view.refit_view()
         self.window: Window = Window(
             "deZent Demonstration",
             self.view
         )
+        
 
         self.__setup_default_gws__()
-
-        self.scene.setSceneRect(-8.0, -8.0, 1500, 800)
 
         self.nrb = QPushButton("Next Round")
         def next_round():
@@ -91,9 +110,6 @@ class App(QApplication):
 
         self.cbf_add_newkey_button.clicked.connect(cbf_newkey)
 
-        self.scene.update()
-        self.view.reset_view()
-
     def run(self) -> int:
         self.network.start()
         
@@ -115,6 +131,8 @@ class App(QApplication):
         finally:
             self.env.stop() # release time waiters first
             self.network.stop()
+            for gw_wg in self.gw_wgs: # TODO: not working
+                gw_wg.instrumentor.release_gates() # TODO: into node graph, some shutdown
 
         return exit_code
 
@@ -146,6 +164,9 @@ class App(QApplication):
 
             # TODO: move GWNode, and all UI stuff into deZentGatewayWidget
             dz_gw_wg: deZentGatewayWidget = deZentGatewayWidget(dz_gw)
+            dz_gw_wg_proxy = self.scene.addWidget(dz_gw_wg)
+            dz_gw_wg_proxy.setScale(0.01)
+            dz_gw_wg_proxy.setPos(gz_gw_ui_node.pos())
 
             self.gws.append(dz_gw)
             self.gw_wgs.append(dz_gw_wg)

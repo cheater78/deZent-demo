@@ -1,7 +1,7 @@
 from __future__ import annotations
 from datetime import datetime
 
-from deZent_demo.network.net_node import NetworkNodeID
+from deZent_demo.network.address import NetworkNodeID
 from deZent_demo.ami.measurement import MeasurementValue
 from deZent_demo.ami.measurement_log import RecordLogEntry
 from deZent_demo.ami.smart_meter_profile import SmartMeterProfileType, SmartMeterProfile

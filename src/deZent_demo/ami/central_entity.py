@@ -1,4 +1,4 @@
-from deZent_demo.network.net_node import NetworkNodeID
+from deZent_demo.network.address import NetworkNodeID
 
 CEID = NetworkNodeID
 class CentralEntity():

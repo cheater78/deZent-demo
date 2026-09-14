@@ -1,28 +1,22 @@
-
 from deZent_demo.zanon.counting_data_structure.counting_bloom_filter import CBloomFilter
-from deZent_demo.ami.measurement import MeasurementKey
-from deZent_demo.ui.utils import *
+from deZent_demo.view.utils import *
 
-from enum import Enum
 import math
-from typing import TypeVar, ClassVar, override
-from abc import abstractmethod
+from typing import override
 from bitarray.util import ba2int
 
 from PySide6.QtCore import (
-    QRect, QRectF,
+    QRectF,
     Qt,
     QLineF,
     QSizeF,
 )
 from PySide6.QtGui import (
-    QVector2D,
     QPainter, 
     QColor, 
     QBrush, 
     QPen,
     QFont,
-    QPainterPath,
 )
 from PySide6.QtWidgets import (
     QGraphicsItem,
@@ -33,185 +27,6 @@ from PySide6.QtWidgets import (
     QWidget,
     QGraphicsWidget,
 )
-
-class CBFPlotAxis(QGraphicsItem):
-    unit_height: ClassVar[int] = 4
-    bar_width: ClassVar[int] = 4
-    bar_spacing: ClassVar[int] = 2
-
-    z_layer: ClassVar[int] = -1
-
-    line_width: ClassVar[int] = 4
-    arrow_height: ClassVar[int] = 8
-    arrow_width: ClassVar[int] = 8
-    marker_width: ClassVar[int] = 8
-
-    marker_label_axis_distance: ClassVar[int] = 4
-    marker_label_font_size: ClassVar[int] = 1
-
-    line_color: ClassVar[QColor] = QColor(Qt.GlobalColor.green)
-    marker_label_font_color: ClassVar[QColor] = QColor(Qt.GlobalColor.green)
-
-    marker_interval: ClassVar[int] = 10
-
-    def __init__(self,
-                 /,
-                 min_value: int = 0,
-                 max_value: int = 100,
-                 vertical: bool = True,
-                 parent: QGraphicsItem | None = None) -> None:
-        super().__init__(parent)
-
-        self.vertical: bool = vertical
-
-        self.min_value: int = min_value
-        self.max_value: int = max_value
-        
-        self.unit_length: int = self.unit_height if self.vertical else (self.bar_width + self.bar_spacing)
-        self.length: int = (self.max_value - self.min_value) * self.unit_length
-
-        self.line_pen: QPen = QPen(
-            self.line_color,
-            self.line_width,
-            Qt.PenStyle.SolidLine,
-            Qt.PenCapStyle.RoundCap,
-            Qt.PenJoinStyle.RoundJoin
-        )
-
-        self.marker_label_brush: QBrush = QBrush(
-            self.marker_label_font_color
-        )
-
-        self.arrow: Arrow = Arrow(QPoint(*self.__orient(0, -self.length)), QPoint(*self.__orient(0, -self.length - self.arrow_height)), self.arrow_width, line_pen=self.line_pen, parent=self)
-        
-        axis_line: QLine = QLine(
-            *self.__orient(0, 0),
-            *self.__orient(0, -self.length),
-        )
-        self.line: QGraphicsLineItem = QGraphicsLineItem(axis_line, parent=self)
-        self.line.setPen(self.line_pen)
-
-        self.markers: list[QGraphicsLineItem] = []
-        self.marker_labels: list[QGraphicsSimpleTextItem] = []
-
-        self.__add_marker(self.min_value)
-        self.__add_marker(self.max_value)
-        begin_marker_value: int = self.min_value + (self.marker_interval - (self.min_value % self.marker_interval))
-        for i in range((self.max_value - self.min_value) // self.marker_interval):
-            marker_value: int = begin_marker_value * (i + 1)
-            self.__add_marker(marker_value)
-
-        self.setZValue(self.z_layer)
-
-    def __add_marker(self, value: int) -> None:
-        marker: QGraphicsLineItem = QGraphicsLineItem(
-            *self.__orient(- int(self.marker_width / 2), - value * self.unit_length),
-            *self.__orient(+ int(self.marker_width / 2), - value * self.unit_length),
-            parent=self
-        )
-        marker.setPen(self.line_pen)
-        self.markers.append(marker)
-
-        marker_label: QGraphicsSimpleTextItem = QGraphicsSimpleTextItem(
-            f"{value}",
-            parent=self
-        )
-        marker_label.setBrush(self.marker_label_brush)
-        marker_label_font: QFont = marker_label.font()
-        marker_label_font.setPointSize(self.marker_label_font_size)
-
-        text_aabb: QRectF = marker_label.boundingRect()
-        if self.vertical:
-            marker_label.setPos(
-                - (self.marker_width / 2) - self.marker_label_axis_distance - text_aabb.width(),
-                - value * self.unit_length - (text_aabb.height() / 2)
-            )
-        else:
-            marker_label.setPos(
-                + value * self.unit_length - (text_aabb.width() / 2),
-                + (self.marker_width / 2) + self.marker_label_axis_distance
-            )
-        self.marker_labels.append(marker_label)
-
-    
-    TypeNameT = TypeVar("TypeNameT", int, float)
-    def __orient(self, v_x: TypeNameT, v_y: TypeNameT) -> tuple[TypeNameT, TypeNameT]:
-        return (v_x, v_y) if self.vertical else (- v_y, - v_x)
-
-    def paint(self,
-              painter: QPainter,
-              option: QStyleOptionGraphicsItem,
-              /,
-              widget: QWidget | None = None) -> None:
-        
-        self.line.paint(painter, option, widget)
-
-        for marker in self.markers:
-            marker.paint(painter, option, widget)
-
-    @override
-    def boundingRect(self) -> QRectF:
-        x_size: int = max(self.arrow_width,self.marker_width)
-        aabb: QRectF = QRectF(
-            - int(x_size / 2), 0,
-            + int(x_size / 2), self.length
-        )
-        return aabb
-
-class PlotFocus(set[int]):
-    pass
-
-class PlotSection(QGraphicsItem):
-    def __init__(self, /, parent: QGraphicsItem | None = None) -> None:
-        super().__init__(parent)
-
-    @abstractmethod
-    def size(self) -> float:
-        pass
-    
-class PlotSectionFocusSeparator(PlotSection):
-    pass
-
-class PlotBar(QGraphicsRectItem):
-    unit_height: ClassVar[int] = 4
-    bar_width: ClassVar[int] = 4
-
-    z_layer: ClassVar[int] = 1
-
-    bar_border_color: ClassVar[QColor] = QColor(Qt.GlobalColor.blue)
-    bar_border_width: ClassVar[int] = 0
-    
-    bar_infill_color: ClassVar[QColor] = QColor(Qt.GlobalColor.darkBlue)
-
-
-    def __init__(self,
-                 value: int = 0,
-                 parent: QGraphicsItem | None = None) -> None:
-        super().__init__(parent=parent)
-
-        border_pen: QPen = QPen(
-            self.bar_border_color,
-            self.bar_border_width
-        )
-        self.setPen(border_pen)
-
-        infill_brush: QBrush = QBrush(
-            self.bar_infill_color
-        )
-        self.setBrush(infill_brush)
-
-        self._value: int = value
-        self.set_value(value)
-
-        self.setZValue(self.z_layer)
-    
-    def set_value(self, value: int) -> None:
-        self._value: int = value
-        bar_rect: QRectF = QRectF(
-            - self.bar_width / 2, 0.0,
-            + self.bar_width / 2, -(self._value * self.unit_height)
-        )
-        self.setRect(bar_rect)
 
 class CBFPlot(QGraphicsWidget):
 
@@ -282,7 +97,7 @@ class CBFPlot(QGraphicsWidget):
         self.focus_arrow_line_width: float = 2 # TODO
         self.focus_arrow_line_pen: QPen = QPen(self.focus_arrow_color, self.focus_arrow_line_width,
             Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
-        self.focus_arrows: dict[int, Arrow] = {}
+        self.focus_arrows: dict[int, GraphicsArrow] = {}
 
         # bar config
         self.bars: dict[int, QGraphicsRectItem] = {}
@@ -322,14 +137,14 @@ class CBFPlot(QGraphicsWidget):
         # y axis config
         self.yaxis_line: QGraphicsLineItem = QGraphicsLineItem(parent=self)
         self.yaxis_arrow_len: float = (self.y_max - self.y_min) * self.y_scale * self.axis_arrow_scale
-        self.yaxis_arrow: Arrow = Arrow(QPoint(), QPoint(0, -1), int(self.axis_marker_width))
+        self.yaxis_arrow: GraphicsArrow = GraphicsArrow(QPoint(0, -1), int(self.axis_marker_width))
         self.yaxis_markers: dict[int, QGraphicsLineItem] = {}
         self.yaxis_marker_labels: dict[int, QGraphicsSimpleTextItem] = {}
 
         # x axis config
         self.xaxis_lines: list[QGraphicsLineItem] = []
         self.xaxis_arrow_len: float = (self.y_max - self.y_min) * self.y_scale * self.axis_arrow_scale
-        self.xaxis_arrow: Arrow = Arrow(QPoint(), QPoint(0, -1), int(self.axis_marker_width))
+        self.xaxis_arrow: GraphicsArrow = GraphicsArrow(QPoint(0, -1), int(self.axis_marker_width))
         self.xaxis_markers: dict[int, QGraphicsLineItem] = {}
         self.xaxis_marker_labels: dict[int, QGraphicsSimpleTextItem] = {}
         self.xaxis_size: float = 0.0
@@ -620,8 +435,7 @@ class CBFPlot(QGraphicsWidget):
 
                 x_pos = self.__xaxis_pos(section_last_neighbor) + (self.bar_interval / 2)
 
-        self.xaxis_arrow: Arrow = Arrow(
-            QPointF(0, 0),
+        self.xaxis_arrow: GraphicsArrow = GraphicsArrow(
             QPointF(int(self.xaxis_arrow_len), 0),
             int(self.axis_marker_width),
             line_pen=self.axis_line_pen,
@@ -659,13 +473,13 @@ class CBFPlot(QGraphicsWidget):
 
         yaxis_len: float = (self.y_max - self.y_min) * self.y_scale
 
-        self.yaxis_arrow: Arrow = Arrow(
-            QPointF(0, - yaxis_len),
-            QPointF(0, - yaxis_len - self.yaxis_arrow_len),
+        self.yaxis_arrow: GraphicsArrow = GraphicsArrow(
+            QPointF(0, - self.yaxis_arrow_len),
             int(self.axis_marker_width),
             line_pen=self.axis_line_pen,
             parent=self
         )
+        self.yaxis_arrow.setPos(QPointF(0, - yaxis_len))
 
         yaxis_line: QLineF = QLineF(
             0, 0,
@@ -697,9 +511,8 @@ class CBFPlot(QGraphicsWidget):
         # print(f"Bar [{argument},{value}] at posx: {self.__xaxis_pos(argument)}")
 
     def __set_bar_marker(self, argument: int, value: int, on_top: bool = False) -> None:
-        arrow: Arrow = Arrow(
-            QPointF(0, - self.focus_arrow_size),
-            QPointF(0, 0),
+        arrow: GraphicsArrow = GraphicsArrow(
+            QPointF(0, self.focus_arrow_size),
             width=self.focus_arrow_width,
             line_pen=self.focus_arrow_line_pen,
             parent=self

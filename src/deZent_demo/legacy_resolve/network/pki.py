@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from deZent_demo.network.address import NetAddr
+from deZent_demo.legacy_resolve.network.address import NetAddr
 from deZent_demo.utils.sys import run, run_unsafe, sys_rmdir_r, PtyProcess, ExpectRule
 
 def __step_cli_cmd__() -> str:

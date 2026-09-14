@@ -6,7 +6,7 @@ from deZent_demo.ami.smart_meter_profile_distribution import SmartMeterProfileDi
 from deZent_demo.ami.measurement_log import RecordLog, PubLog
 from deZent_demo.ami.gateway_profile import GatewayProfileType
 from deZent_demo.network.address import NetworkNodeID
-from deZent_demo.network.net_node import AbstractNetworkNode
+from deZent_demo.network.abstract_node import AbstractNetworkNode
 from deZent_demo.network.protocol import *
 from deZent_demo.zanon.counting_data_structure import *
 from deZent_demo.utils.time_env import *
@@ -18,7 +18,7 @@ class deZentGateway(Gateway):
     def __init__(self,
                  env: AbstractTimeEnv,
                  node: AbstractNetworkNode,
-                 dt_minutes: int,
+                 dt: timedelta,
                  z: int,
 
                  ce: NetworkNodeID,
@@ -42,7 +42,7 @@ class deZentGateway(Gateway):
         self.coord: bool = False
         self.coord_noise: int = 0
 
-        self.delta_t: timedelta = timedelta(minutes=dt_minutes)
+        self.delta_t: timedelta = dt
         self.z: int = z
         self.measurement_interval = timedelta(minutes=15)
         self.n_cycles_for_anon: int = int(max(1, self.delta_t.seconds/self.measurement_interval.seconds))
