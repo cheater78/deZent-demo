@@ -5,39 +5,41 @@ from deZent_demo.ami.gateway import Gateway
 from deZent_demo.ami.smart_meter_profile_distribution import SmartMeterProfileDistributionType
 from deZent_demo.ami.measurement_log import RecordLog, PubLog
 from deZent_demo.ami.gateway_profile import GatewayProfileType
-from deZent_demo.network.address import NetworkNodeID
-from deZent_demo.network.abstract_node import AbstractNetworkNode
-from deZent_demo.network.protocol import *
+from deZent_demo.network import *
 from deZent_demo.zanon.counting_data_structure import *
 from deZent_demo.utils.time_env import *
 
 from deZent_demo.instrument.deZent_gateway_instrumentor import *
 
-class deZentGateway(Gateway):
+class deZentGateway(Gateway, deZentNode):
     
-    def __init__(self,
-                 env: AbstractTimeEnv,
-                 node: AbstractNetworkNode,
-                 dt: timedelta,
-                 z: int,
-
-                 ce: NetworkNodeID,
-                 prev: NetworkNodeID,
-                 next: NetworkNodeID,
-
-                 gw_profile_type: GatewayProfileType = GatewayProfileType.STANDARD,
-                 n_sm_conn: int = 1,
-                 sm_profile_distribution_type: SmartMeterProfileDistributionType = SmartMeterProfileDistributionType.TK,
-                 instrumentor: Instrumentor = Instrumentor()) -> None:
+    def __init__(
+        self,
+        env: AbstractTimeEnv,
+        dt: timedelta,
+        z: int,
+        node: AbstractNetworkNode,
+        ce_id: NetworkNodeID | None = None,
+        next_id: NetworkNodeID | None = None,
+        gw_profile_type: GatewayProfileType = GatewayProfileType.STANDARD,
+        n_sm_conn: int = 1,
+        sm_profile_distribution_type: SmartMeterProfileDistributionType = SmartMeterProfileDistributionType.TK,
+        instrumentor: Instrumentor = Instrumentor(),
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(
+            node=node,
+            ce_id=ce_id,
+            next_id=next_id,
+            gw_profile_type=gw_profile_type,
+            n_sm_conn=n_sm_conn,
+            sm_profile_distribution_type=sm_profile_distribution_type,
+            instrumentor=instrumentor,
+            **kwargs
+        )
         self.env: AbstractTimeEnv = env
 
-        self._node_: AbstractNetworkNode = node
-        self._node_.register_msg_cb(self._node_msg_cb_)
-        
-        # TODO: get ring and star
-        self.ce: NetworkNodeID = ce
-        self.prev: NetworkNodeID = prev
-        self.next: NetworkNodeID = next
+        self._network_node.register_msg_cb(self._node_msg_cb_)
 
         self.coord: bool = False
         self.coord_noise: int = 0
@@ -46,17 +48,7 @@ class deZentGateway(Gateway):
         self.z: int = z
         self.measurement_interval = timedelta(minutes=15)
         self.n_cycles_for_anon: int = int(max(1, self.delta_t.seconds/self.measurement_interval.seconds))
-        
-        Gateway.__init__(
-            self,
-            self.ce,
-            self._node_.id(),
-            gw_profile_type,
-            n_sm_conn,
-            sm_profile_distribution_type,
-            instrumentor
-        )
-
+    
     def on_coord_round_begin(self, curr_round_time: datetime) -> None:
         if not self.on_coord_wait_for_round_begin(curr_round_time):
             return # waiting was cancelled
@@ -233,8 +225,8 @@ class deZentGateway(Gateway):
             cnt_struct
         )
         self._instrument(dZGWInstrumentEvent.GW_SEND_COLLECTION_TO_NEXT,
-            self.next, msg)
-        self._node_.write(self.next, msg)
+            self.get_next(), msg)
+        self.write_next(msg)
 
     def send_publication_to_next(self, cnt_struct: CntDataStructure, p_pub: float, curr_round_time: datetime) -> None:
         msg: MessageRoundPublish = MessageRoundPublish(
@@ -243,16 +235,16 @@ class deZentGateway(Gateway):
             p_pub
         )
         self._instrument(dZGWInstrumentEvent.GW_SEND_PUBLICATION_TO_NEXT,
-            self.next, msg)
-        self._node_.write(self.next, msg)
+            self.get_next(), msg)
+        self.write_next(msg)
 
     def send_publication_to_ce(self, records: PubLog) -> None:
         msg: MessagePublishRecord = MessagePublishRecord(
             records
         )
         self._instrument(dZGWInstrumentEvent.GW_SEND_PUBLICATION_TO_CE,
-            self.ce, msg)
-        self._node_.write(self.ce, msg)
+            self.get_ce(), msg)
+        self.write_ce(msg)
 
     def send_coord_round_begin_to_next(self, curr_round_time: datetime) -> None:
         # NOTE: CCC promotion is currently cyclic
@@ -261,8 +253,8 @@ class deZentGateway(Gateway):
             curr_round_time + self.measurement_interval
         )
         self._instrument(dZGWInstrumentEvent.CCC_SEND_COORD_ROUND_BEGIN_TO_NEXT,
-            self.next, msg)
-        self._node_.write(self.next, msg)
+            self.get_next(), msg)
+        self.write_next(msg)
 
     def __coord_sample_initial_noise__(self) -> int:
         return random.randint(20,30)

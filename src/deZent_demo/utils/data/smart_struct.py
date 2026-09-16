@@ -3,7 +3,7 @@ from abc import ABC
 from enum import Enum
 from typing import Any, ClassVar, Generic, Type, TypeVar, get_origin, get_args, cast, Tuple, Dict
 
-from deZent_demo.utils.smart_class import *
+from .smart_class import *
 
 @smartdataclass
 class SmartStruct(SmartClass, ABC):
@@ -116,4 +116,11 @@ class TaggedSmartStruct(Generic[StructTagType], SmartStruct, ABC):
     def tag(cls: Type[DomainRootClassType]) -> StructTagType:
         return cast(StructTagType, cls._tag) # __init_subclass__ should enforce this at RT
 
-__all__ = ["SmartStruct", "StructTagType", "StructTag", "DomainRootClassType", "TaggedSmartStruct", "smartdataclass"]
+__all__ = [
+    "SmartStruct",
+    "StructTagType",
+    "StructTag",
+    "DomainRootClassType",
+    "TaggedSmartStruct",
+    "smartdataclass"
+]

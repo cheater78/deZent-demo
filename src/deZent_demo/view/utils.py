@@ -1,5 +1,7 @@
 import math
-from typing import TypeVar
+from typing import Any, TypeVar
+
+from deZent_demo.view.style.style import *
 
 from PySide6.QtCore import (
     QPoint, QPointF,
@@ -22,10 +24,13 @@ from PySide6.QtWidgets import (
 
 class GraphicsContainerItem(QGraphicsItem):
 
-    def __init__(self,
-                 /,
-                 parent: QGraphicsItem | None = None) -> None:
-        QGraphicsItem.__init__(self, parent)
+    def __init__(
+        self,
+        /,
+        parent: QGraphicsItem | None = None,
+        **kwargs: Any
+    ) -> None:
+        super().__init__(parent=parent, **kwargs)
 
     def paint(self,
               painter: QPainter,
@@ -50,61 +55,83 @@ PointT = TypeVar("PointT", QPoint, QPointF)
 def rect_grow_to_include(rect: QRectF, point: QPoint | QPointF) -> QRectF:
     return rect.united(QRectF(point, point))
 
-class GraphicsArrow(GraphicsContainerItem):
+@dataclass
+class GraphicsArrowStyle(Style):
+    width: float = 10
+    angle: int = 45
+    line_style: LineStyle = field(
+        default_factory=lambda: LineStyle(
+            QPen(
+                QColor(Qt.GlobalColor.white),
+                2,
+                Qt.PenStyle.SolidLine,
+                Qt.PenCapStyle.RoundCap,
+                Qt.PenJoinStyle.RoundJoin,
+            )
+        )
+    )
 
-    def __init__(self,
-                 /,
-                 v: QPoint | QPointF,
-                 width: float,
-                 angle: int = 45,
-                 line_pen: QPen | None = None,
-                 parent: QGraphicsItem | None = None) -> None:
-        super().__init__(parent)
+class GraphicsArrow(Styled[GraphicsArrowStyle], GraphicsContainerItem):
 
-        self.arrow_vector: QPointF = QPointF()
+    def __init__(
+        self,
+        /,
+        v: QPoint | QPointF,
+        style: GraphicsArrowStyle = GraphicsArrowStyle(),
+        parent: QGraphicsItem | None = None,
+        **kwargs: Any
+    ) -> None:
+
+        self.arrow_vector: QPointF = QPointF(v.x(), v.y())
         self.arrow_width: float = 0
         self.arrow_wing_angle: int = 45
 
-        line_pen = line_pen if line_pen is not None else QPen(
-            QColor(Qt.GlobalColor.white),
-            1,
-            Qt.PenStyle.SolidLine,
-            Qt.PenCapStyle.RoundCap,
-            Qt.PenJoinStyle.RoundJoin,
-        )
-        self.line_pen: QPen = line_pen
-        self.main_line: QGraphicsLineItem = QGraphicsLineItem(parent=self)
+        self.main_line: QGraphicsLineItem = QGraphicsLineItem()
 
         self.right: QPointF = QPointF()
         self.left: QPointF = QPointF()
-        self.arrow_lline: QGraphicsLineItem = QGraphicsLineItem(parent=self)
-        self.arrow_rline: QGraphicsLineItem = QGraphicsLineItem(parent=self)
+        self.arrow_lline: QGraphicsLineItem = QGraphicsLineItem()
+        self.arrow_rline: QGraphicsLineItem = QGraphicsLineItem()
 
-        self.__update(v, width, angle, line_pen)
+        super().__init__(
+            style=style,
+            parent=parent,
+            **kwargs
+        )
 
-    def __update(self,
-                 v: QPoint | QPointF,
-                 width: float,
-                 angle: int,
-                 line_pen: QPen) -> None:
-        self.arrow_vector = QPointF(v.x(), v.y())
-        self.arrow_width = width
-        self.arrow_wing_angle = angle
+        self.main_line.setParentItem(self)
+        self.arrow_lline.setParentItem(self)
+        self.arrow_rline.setParentItem(self)
 
-        self.line_pen = line_pen
+    @override
+    def on_style_change(self, new_style: GraphicsArrowStyle) -> None:
+        self.update_arrow(style=new_style)
+        return
+
+    def update_arrow(
+        self,
+        v: QPoint | QPointF | None = None,
+        style: GraphicsArrowStyle | None = None,
+    ) -> None:
+        style = style if style is not None else self.get_style()
+
+        self.arrow_vector = QPointF(v.x(), v.y()) if v is not None else self.arrow_vector
+        self.arrow_width = style.width
+        self.arrow_wing_angle = style.angle
+
         self.main_line.setLine(
             QLineF(
                 QPointF(0.0, 0.0),
                 self.arrow_vector,
             )
         )
-        self.main_line.setPen(self.line_pen)
+        self.main_line.setPen(style.line_style.pen)
 
         vn: QVector2D = QVector2D(self.arrow_vector)
         vn.normalize()
 
-        a_rad: float = (angle / 180) * math.pi # deg to rad
-        w_he: float = width / 2 # full width to half extent
+        a_rad: float = (style.angle / 180) * math.pi # deg to rad
+        w_he: float = style.width / 2 # full width to half extent
         wings_on_main: float = w_he / math.tan(a_rad) # length of wings on main line
         wings_on_main_v: QVector2D = vn * wings_on_main
 
@@ -120,7 +147,7 @@ class GraphicsArrow(GraphicsContainerItem):
                 self.right
             )
         )
-        self.arrow_lline.setPen(self.line_pen)
+        self.arrow_lline.setPen(style.line_style.pen)
 
         self.arrow_rline.setLine(
             QLineF(
@@ -128,16 +155,4 @@ class GraphicsArrow(GraphicsContainerItem):
                 self.left
             )
         )
-        self.arrow_rline.setPen(self.line_pen)
-
-    def update_arrow(self,
-                     v: QPoint | QPointF| None = None,
-                     width: float | None = None,
-                     angle: int | None = None,
-                     line_pen: QPen | None = None) -> None:
-        self.__update(
-            v if v is not None else self.arrow_vector,
-            width if width is not None else self.arrow_width,
-            angle if angle is not None else self.arrow_wing_angle,
-            line_pen if line_pen is not None else self.line_pen
-        )
+        self.arrow_rline.setPen(style.line_style.pen)

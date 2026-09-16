@@ -14,10 +14,12 @@ class SmartMeter():
         sm_profile_type: SmartMeterProfileType = profile_dist.sample_sm_profile_type()
         return SmartMeter(gw_id, sm_id, sm_profile_type)
 
-    def __init__(self,
-                 gw_id: NetworkNodeID,
-                 sm_id: NetworkNodeID,
-                 sm_profile_type: SmartMeterProfileType):
+    def __init__(
+        self,
+        gw_id: NetworkNodeID,
+        sm_id: NetworkNodeID,
+        sm_profile_type: SmartMeterProfileType
+    ) -> None:
         self.gw: NetworkNodeID = gw_id
         self.id: NetworkNodeID = sm_id
         self.name: str = str(gw_id) + "-" + str(sm_id)

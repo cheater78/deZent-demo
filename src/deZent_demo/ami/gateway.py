@@ -1,6 +1,8 @@
 from datetime import datetime
 
 from deZent_demo.network.address import NetworkNodeID
+from deZent_demo.network.abstract_node import AbstractNetworkNode
+from deZent_demo.network.topology import CentralizedNode
 
 from deZent_demo.ami.measurement_log import RecordLogEntry, RecordLog
 from deZent_demo.ami.smart_meter import SmartMeter
@@ -20,26 +22,33 @@ def gw_create_sms(gw_id: NetworkNodeID, sm_profile_type: SmartMeterProfileDistri
         sm_dict[sm_id] = SmartMeter.create_sample_sm_from_profile_distribution(gw_id, sm_id, sm_profile_distribution)
     return sm_dict
 
-class Gateway(Instrumentable):
+class Gateway(Instrumentable, CentralizedNode):
 
-    def __init__(self,
-                 ce_id: NetworkNodeID,
-                 gw_id: NetworkNodeID,
-                 gw_profile_type: GatewayProfileType = GatewayProfileType.STANDARD,
-                 n_sm_conn: int = 0,
-                 sm_profile_distribution_type: SmartMeterProfileDistributionType = SmartMeterProfileDistributionType.TK,
-                 instrumentor: Instrumentor = Instrumentor()):
-        self.ce_id: NetworkNodeID = ce_id
-        self.gw_id: NetworkNodeID = gw_id
+    def __init__(
+        self,
+        node: AbstractNetworkNode,
+        ce_id: NetworkNodeID | None = None,
+        gw_profile_type: GatewayProfileType = GatewayProfileType.STANDARD,
+        n_sm_conn: int = 0,
+        sm_profile_distribution_type: SmartMeterProfileDistributionType = SmartMeterProfileDistributionType.TK,
+        instrumentor: Instrumentor = Instrumentor(),
+        **kwargs: Any,
+    ) -> None:
+        
         self.gw_profile_type: GatewayProfileType = gw_profile_type
         self.record_log = RecordLog()
 
         # TODO: possibly move to network, since SMs could be a separate instance
         self.n_sm_conn: int = n_sm_conn
         self.sm_profile_type: SmartMeterProfileDistributionType = sm_profile_distribution_type
-        self.l_sms: dict[NetworkNodeID, SmartMeter] = gw_create_sms(gw_id, sm_profile_distribution_type, n_sm_conn)
+        self.l_sms: dict[NetworkNodeID, SmartMeter] = gw_create_sms(node.id(), sm_profile_distribution_type, n_sm_conn)
 
-        Instrumentable.__init__(self, instrumentor)
+        super().__init__(
+            instrumentor=instrumentor,
+            node=node,
+            ce_id=ce_id,
+            **kwargs
+        )
 
     '''
         get new measurement for the current time point from sm and add to list

@@ -1,7 +1,13 @@
+from typing import Any
+
 class DirectedGraphNode():
 
-    def __init__(self,
-                 graph: DirectedGraph) -> None:
+    def __init__(
+        self,
+        graph: DirectedGraph,
+        **kwargs: Any
+    ) -> None:
+        super().__init__(**kwargs)
         self._graph: DirectedGraph = graph
     
     def adjacent_edges(self) -> list[DirectedGraphEdge]:
@@ -9,10 +15,14 @@ class DirectedGraphNode():
 
 class DirectedGraphEdge():
 
-    def __init__(self,
-                 graph: DirectedGraph,
-                 begin: DirectedGraphNode,
-                 end: DirectedGraphNode) -> None:
+    def __init__(
+        self,
+        graph: DirectedGraph,
+        begin: DirectedGraphNode,
+        end: DirectedGraphNode,
+        **kwargs: Any
+    ) -> None:
+        super().__init__(**kwargs)
         self._graph: DirectedGraph = graph
         self._begin_node: DirectedGraphNode = begin
         self._end_node: DirectedGraphNode = end
@@ -25,7 +35,10 @@ class DirectedGraphEdge():
 
 class DirectedGraph():
 
-    def __init__(self) -> None:
+    def __init__(self,
+        **kwargs: Any
+    ) -> None:
+        super().__init__(**kwargs)
         self._nodes: list[DirectedGraphNode] = []
         self._edges: list[DirectedGraphEdge] = []
 

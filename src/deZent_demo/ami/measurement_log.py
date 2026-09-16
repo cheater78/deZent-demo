@@ -4,24 +4,32 @@ from datetime import datetime, timedelta
 from typing import Iterator
 
 from deZent_demo.ami.measurement import MeasurementValue, MeasurementKey
-from deZent_demo.network.address import NetworkNodeID
 from deZent_demo.ami.smart_meter_profile import SmartMeterProfileType
+from deZent_demo.network.address import NetworkNodeID
 
 class RecordLogEntry():
-    def __init__(self, m: MeasurementValue, sm_type: SmartMeterProfileType, time: datetime, is_pub: bool):
+
+    def __init__(
+        self,
+        m: MeasurementValue,
+        sm_type: SmartMeterProfileType,
+        time: datetime,
+        is_pub: bool
+    ) -> None:
         self.orig_measurement: MeasurementValue = m
         self.sm_type: SmartMeterProfileType = sm_type
         self.time: datetime = time
         self.is_published: bool = is_pub
         
-    def __str__(self):
+    def __str__(self) -> str:
         return ("RecordLogEntry(orig value: " + str(self.orig_measurement) + ", time: " + str(self.time) + 
                 ", is_published " + str(self.is_published) + ")" )
 
 RecordLogDictEntry = dict[NetworkNodeID, RecordLogEntry]
 RecordLogDict = dict[MeasurementKey, RecordLogDictEntry]
 class RecordLog():
-    def __init__(self):
+
+    def __init__(self) -> None:
         self.log: RecordLogDict = {}
 
     def add_record(self, sm_id: NetworkNodeID, record: RecordLogEntry) -> None:
@@ -71,7 +79,12 @@ class RecordLog():
         update record that has been published and set flag to avoid publishing multiple times
     '''
     def update_record_published(self, pub_record: PubLogEntry) -> None:
-        self.log[pub_record.key][pub_record.id] = RecordLogEntry(pub_record.measurement, pub_record.sm_type, pub_record.time, is_pub = True)
+        self.log[pub_record.key][pub_record.id] = RecordLogEntry(
+            pub_record.measurement,
+            pub_record.sm_type,
+            pub_record.time,
+            is_pub = True
+        )
 
     def __bool__(self) -> bool:
         return bool(self.log) # defined by "not empty"
@@ -110,49 +123,46 @@ class RecordLog():
         return key
     
     @staticmethod
-    def __find_m_group__(m: int, tmp_max: int):
-        # while(m > tmp_max):
-        #     tmp_max *= 2
-        # return tmp_max
-
-        # faster upper pow2 with bit shift
+    def __find_m_group__(m: int, tmp_max: int) -> int:
         if m <= tmp_max:
             return tmp_max
         return tmp_max << ((m - 1) // tmp_max).bit_length()
     
 class PubLogEntry():
-    def __init__(self, key: MeasurementKey, orig_measurement: MeasurementValue, time: datetime, sm_id: NetworkNodeID, sm_type: SmartMeterProfileType):
+
+    def __init__(
+        self,
+        key: MeasurementKey,
+        orig_measurement: MeasurementValue,
+        time: datetime,
+        sm_id: NetworkNodeID,
+        sm_type: SmartMeterProfileType
+    ) -> None:
         self.key = key
         self.time = time
         self.id = sm_id
         self.measurement = orig_measurement
         self.sm_type = sm_type
 
-    def __str__(self):
+    def __str__(self) -> str:
         return ("PubLogEntry(" + "key: " + str(self.key) + ", value: " + str(self.measurement) + ", timepoint: " 
                 + str(self.time) + ", SM: " + str(self.id) + ", type: " + str(self.sm_type) + ")")
 
 class PubLog():
-    def __init__(self):
-        self.log: list[PubLogEntry] = []
-        # pd.DataFrame(columns = ["value", "time", "ID", "orig_measurement", "type"])
 
-    def add_record(self, pub_tuple: PubLogEntry):
+    def __init__(self) -> None:
+        self.log: list[PubLogEntry] = []
+
+    def add_record(self, pub_tuple: PubLogEntry) -> None:
         self.log.append(pub_tuple)
-        # new_record = pd.DataFrame({"value": [pub_tuple.key], "time": [pub_tuple.time], "ID": [pub_tuple.id], "orig_measurement": [pub_tuple.measurement], "type": [pub_tuple.sm_type]})
-        # self.log = pd.concat([self.log, new_record], ignore_index = True) # Appending new rows using concat()
 
     def extend(self, pub_log: PubLog) -> None:
-        # self.log = pd.concat([self.log, pub_log.log], ignore_index = True)
         self.log += pub_log.log
 
     def __bool__(self) -> bool:
         return bool(self.log)
 
     def __iter__(self) -> Iterator[PubLogEntry]:
-        # # NOTE: DataFrame / .csv has to have the exact same attribute order as PubLogEntry, 
-        # # if not construct with explicit assignment!
-        # return (PubLogEntry(*row) for row in self.log.itertuples(index=False, name=None))
         return self.log.__iter__()
     
     def __str__(self) -> str:
@@ -187,4 +197,3 @@ class PubLog():
                 "type": sm_profile_types
             }
         )
-

@@ -19,7 +19,7 @@ class CountingBloomFilterView(QGraphicsView):
         for _ in range(78):
             cbf_dummy.add(78)
 
-        self._cbf_plot: CBFPlot = CBFPlot(cbf_dummy) 
+        self._cbf_plot: CBFPlot = CBFPlot(cbf_dummy, cbf_dummy.inspect_item_indices(78)) 
         
         self._scene.addItem(self._cbf_plot)
         

@@ -52,8 +52,14 @@ class VirtualNetworkNode(AbstractNetworkNode):
     
     def write(self, receiver: NetworkNodeID, msg: NetworkNodeMessage) -> None:
         self.network.write_message(self.id(), receiver, msg)
-        print(f"VirtualNetworkNode: {self.id()}>{receiver}: {msg}", flush=True)
 
     def emit_net_node_msg(self, sender: NetworkNodeID, msg: NetworkNodeMessage) -> None:
         self._node_msg_cb_(sender, msg)
-    
+
+__all__ = [
+    "NetworkNodeID",
+    "AbstractNetworkNode",
+    "NetworkNodeMessageCB",
+    "VirtualNetworkThread",
+    "VirtualNetworkNode"
+]

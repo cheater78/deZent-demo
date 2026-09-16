@@ -37,7 +37,7 @@ class SmartMeterProfileDistribution(ABC):
         *,
         type: SmartMeterProfileDistributionType,
         **kwargs: Any
-    ):
+    ) -> None:
         super().__init_subclass__(**kwargs)
 
         cls._cls_type = type
@@ -62,6 +62,7 @@ class SmartMeterProfileDistribution(ABC):
     and accesses data about maximum consumption and corresponding scaling factor (SLAs are normed to 1000 KWh/a)
 """
 class ProfileDistribution_tk(SmartMeterProfileDistribution, type=SmartMeterProfileDistributionType.TK):
+    
     def __init__(self):
         super().__init__()
 

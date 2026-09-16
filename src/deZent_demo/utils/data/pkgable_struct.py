@@ -4,9 +4,9 @@ from abc import ABC
 from enum import Enum
 from typing import Any, Type, get_type_hints, get_origin, cast
 
-from deZent_demo.utils.smart_class import *
-from deZent_demo.utils.smart_struct import *
-from deZent_demo.utils.pkgable_class import *
+from .smart_class import *
+from .smart_struct import *
+from .pkgable_class import *
 
 def __pack__(data: Any) -> Any:
     if isinstance(data, PkgableTaggedStruct):
@@ -76,4 +76,9 @@ class PkgableTaggedStruct(TaggedSmartStruct[StructTagType], PkgableClass, ABC):
 
         return target_cls(*values)
 
-__all__ = ["Package", "PkgableTaggedStruct", "StructTag", "smartdataclass"]
+__all__ = [
+    "Package",
+    "PkgableTaggedStruct",
+    "StructTag",
+    "smartdataclass"
+]

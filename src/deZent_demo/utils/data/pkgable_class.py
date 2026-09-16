@@ -16,4 +16,8 @@ class PkgableClass(ABC):
     def from_package(cls: Type[PkgableClassType], pkg: Package) -> PkgableClassType:
         pass
 
-__all__ = ["Package", "PakageType", "PkgableClass"]
+__all__ = [
+    "Package",
+    "PakageType",
+    "PkgableClass"
+]

@@ -67,4 +67,7 @@ def smartdataclass(cls: DataClassType | None = None, **kwargs: Any) -> Callable[
 
     return wrap(cls) if cls is not None else wrap
 
-__all__ = ["SmartClass", "smartdataclass"]
+__all__ = [
+    "SmartClass",
+    "smartdataclass"
+]

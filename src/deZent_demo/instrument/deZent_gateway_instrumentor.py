@@ -3,7 +3,7 @@ from datetime import datetime
 
 from deZent_demo.network.address import NetworkNodeID
 from deZent_demo.network.protocol import *
-from deZent_demo.zanon.counting_data_structure import CBloomFilter
+from deZent_demo.utils.data.counting_structure.counting_bloom_filter import CBloomFilter
 from deZent_demo.ami.measurement_log import RecordLog, PubLog, PubLogEntry
 
 from .gateway_instrumentor import *

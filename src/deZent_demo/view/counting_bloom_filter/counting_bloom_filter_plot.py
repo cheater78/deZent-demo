@@ -1,4 +1,4 @@
-from deZent_demo.zanon.counting_data_structure.counting_bloom_filter import CBloomFilter
+from deZent_demo.utils.data.counting_structure.counting_bloom_filter import CBloomFilter
 from deZent_demo.view.utils import *
 
 import math
@@ -137,14 +137,14 @@ class CBFPlot(QGraphicsWidget):
         # y axis config
         self.yaxis_line: QGraphicsLineItem = QGraphicsLineItem(parent=self)
         self.yaxis_arrow_len: float = (self.y_max - self.y_min) * self.y_scale * self.axis_arrow_scale
-        self.yaxis_arrow: GraphicsArrow = GraphicsArrow(QPoint(0, -1), int(self.axis_marker_width))
+        self.yaxis_arrow: GraphicsArrow = GraphicsArrow(QPoint(0, -1))
         self.yaxis_markers: dict[int, QGraphicsLineItem] = {}
         self.yaxis_marker_labels: dict[int, QGraphicsSimpleTextItem] = {}
 
         # x axis config
         self.xaxis_lines: list[QGraphicsLineItem] = []
         self.xaxis_arrow_len: float = (self.y_max - self.y_min) * self.y_scale * self.axis_arrow_scale
-        self.xaxis_arrow: GraphicsArrow = GraphicsArrow(QPoint(0, -1), int(self.axis_marker_width))
+        self.xaxis_arrow: GraphicsArrow = GraphicsArrow(QPoint(0, -1))
         self.xaxis_markers: dict[int, QGraphicsLineItem] = {}
         self.xaxis_marker_labels: dict[int, QGraphicsSimpleTextItem] = {}
         self.xaxis_size: float = 0.0
@@ -412,7 +412,7 @@ class CBFPlot(QGraphicsWidget):
             sorted_sections: list[tuple[int, tuple[set[int], float]]] = sorted(self.sections.items())
 
             for sitem in sorted_sections:
-                sdeno, s = sitem
+                _, s = sitem
 
                 sorted_section: list[int] = sorted(s[0])
                 section_first_neighbor: int = max(sorted_section[0] - self.focus_neighbor_extent, self.x_min)
@@ -437,8 +437,6 @@ class CBFPlot(QGraphicsWidget):
 
         self.xaxis_arrow: GraphicsArrow = GraphicsArrow(
             QPointF(int(self.xaxis_arrow_len), 0),
-            int(self.axis_marker_width),
-            line_pen=self.axis_line_pen,
             parent=self
         )
         self.xaxis_arrow.setPos(x_pos, 0)
@@ -475,8 +473,6 @@ class CBFPlot(QGraphicsWidget):
 
         self.yaxis_arrow: GraphicsArrow = GraphicsArrow(
             QPointF(0, - self.yaxis_arrow_len),
-            int(self.axis_marker_width),
-            line_pen=self.axis_line_pen,
             parent=self
         )
         self.yaxis_arrow.setPos(QPointF(0, - yaxis_len))
@@ -513,8 +509,6 @@ class CBFPlot(QGraphicsWidget):
     def __set_bar_marker(self, argument: int, value: int, on_top: bool = False) -> None:
         arrow: GraphicsArrow = GraphicsArrow(
             QPointF(0, self.focus_arrow_size),
-            width=self.focus_arrow_width,
-            line_pen=self.focus_arrow_line_pen,
             parent=self
         )
         ypos_top: float = self.__yaxis_pos(self.y_max) - self.focus_arrow_size - self.focus_arrow_margin

@@ -55,6 +55,3 @@ class CntDataStructure(ABC):
             if(self.check(m_key)):
                 found_records.add_records_for_key(m_key, records)
         return found_records
-
-
-    

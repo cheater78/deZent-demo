@@ -13,12 +13,17 @@ from PySide6.QtCore import (
 
 class GraphicsDirectedGraphNode(DirectedGraphNode, GraphicsContainerItem):
 
-    def __init__(self,
-                 graph: GraphicsDirectedGraph,
-                 /,
-                 parent: QGraphicsItem | None = None) -> None:
-        DirectedGraphNode.__init__(self, graph)
-        GraphicsContainerItem.__init__(self, parent)
+    def __init__(
+        self,
+        graph: GraphicsDirectedGraph,
+        parent: QGraphicsItem | None = None,
+        **kwargs: Any
+    ) -> None:
+        super().__init__(
+            graph=graph,
+            parent=parent,
+            **kwargs
+        )
 
         self.setFlags(
             QGraphicsItem.GraphicsItemFlag.ItemIsMovable |
@@ -38,14 +43,21 @@ class GraphicsDirectedGraphNode(DirectedGraphNode, GraphicsContainerItem):
 
 class GraphicsDirectedGraphEdge(DirectedGraphEdge, GraphicsContainerItem):
 
-    def __init__(self,
-                     graph: GraphicsDirectedGraph,
-                     begin: GraphicsDirectedGraphNode,
-                     end: GraphicsDirectedGraphNode,
-                     /,
-                     parent: QGraphicsItem | None = None) -> None:
-        DirectedGraphEdge.__init__(self, graph, begin, end)
-        GraphicsContainerItem.__init__(self, parent)
+    def __init__(
+        self,
+        graph: GraphicsDirectedGraph,
+        begin: GraphicsDirectedGraphNode,
+        end: GraphicsDirectedGraphNode,
+        parent: QGraphicsItem | None = None,
+        **kwargs: Any
+    ) -> None:
+        super().__init__(
+            graph=graph,
+            begin=begin,
+            end=end,
+            parent=parent,
+            **kwargs
+        )
 
     @abstractmethod
     def on_graphics_directed_graph_node_moved(self) -> None:
@@ -53,11 +65,13 @@ class GraphicsDirectedGraphEdge(DirectedGraphEdge, GraphicsContainerItem):
 
 class GraphicsDirectedGraph(DirectedGraph, GraphicsContainerItem):
 
-    def __init__(self,
-                 /,
-                 parent: QGraphicsItem | None = None) -> None:
-        DirectedGraph.__init__(self)
-        GraphicsContainerItem.__init__(self, parent)
+    def __init__(
+        self,
+        parent: QGraphicsItem | None = None
+    ) -> None:
+        super().__init__(
+            parent=parent
+        )
 
     def graphics_nodes(self) -> list[GraphicsDirectedGraphNode]:
         return cast(list[GraphicsDirectedGraphNode], self._nodes)

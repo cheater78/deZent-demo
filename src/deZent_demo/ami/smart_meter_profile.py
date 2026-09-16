@@ -53,7 +53,7 @@ class SmartMeterProfile(ABC):
         *,
         type: SmartMeterProfileType | None,
         **kwargs: Any
-    ):
+    ) -> None:
         super().__init_subclass__(**kwargs)
 
         # only final classes are registered
@@ -118,10 +118,12 @@ class SmartMeterRecordedDataProfile(SmartMeterProfile, type=None):
         col_idx: str = tmp_m + "_" + tmp_d
         return col_idx
 
-    def __init__(self,
-                 consumption_p_a: float,
-                 sla_file: str,
-                 measurement_noise: float = 0.1) -> None:
+    def __init__(
+        self,
+        consumption_p_a: float,
+        sla_file: str,
+        measurement_noise: float = 0.1
+    ) -> None:
         self.consumption_p_a: float = consumption_p_a
         self.scaling_sla: float = self.consumption_p_a * comsumption_p_a_scale_factor
         self.sla_file: str = sla_file
