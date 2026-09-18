@@ -1,3 +1,4 @@
+from __future__ import annotations
 from .graphics_directed_graph import GraphicsDirectedGraphNode, GraphicsDirectedGraphEdge, GraphicsDirectedGraph
 
 from deZent_demo.view.utils import *
@@ -40,12 +41,12 @@ class NetworkGraphNodeStyle(Style):
 class NetworkGraphEdgeStyle(Style):
     edge_arrow_style: GraphicsArrowStyle = field(
         default_factory=lambda: GraphicsArrowStyle(
-            20,
-            45,
+            10,
+            33,
             LineStyle(
                 QPen(
                     QColor(Qt.GlobalColor.gray),
-                    4,
+                    2,
                     Qt.PenStyle.SolidLine,
                     Qt.PenCapStyle.RoundCap,
                     Qt.PenJoinStyle.RoundJoin,

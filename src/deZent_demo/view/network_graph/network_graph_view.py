@@ -18,17 +18,6 @@ class NetworkGraphView(PanningGraphicsView):
         self._scene: QGraphicsScene = QGraphicsScene(parent=self)
         self._network_graph: NetworkGraph = NetworkGraph()
 
-        # TODO: TEST
-        
-        from ..utils import GraphicsArrow
-        from PySide6.QtCore import QPointF
-
-        arrow = GraphicsArrow(QPointF(0, 10))
-        self._scene.addItem(arrow)
-        arrow.setPos(QPointF(0, -10))
-
-        # TODO: TEST
-
         self._scene.addItem(self._network_graph)
         
         self.setScene(self._scene)

@@ -6,7 +6,7 @@ from deZent_demo.ami.smart_meter_profile_distribution import SmartMeterProfileDi
 from deZent_demo.ami.measurement_log import RecordLog, PubLog
 from deZent_demo.ami.gateway_profile import GatewayProfileType
 from deZent_demo.network import *
-from deZent_demo.zanon.counting_data_structure import *
+from deZent_demo.utils.data.counting_structure import *
 from deZent_demo.utils.time_env import *
 
 from deZent_demo.instrument.deZent_gateway_instrumentor import *

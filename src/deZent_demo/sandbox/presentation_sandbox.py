@@ -1,13 +1,10 @@
-# Source Generated with Decompyle++
-# File: presentation_sandbox.cpython-314.pyc (Python 3.14)
-
 from typing import override, cast
 from deZent_demo.network import *
 from .sandbox import *
 from deZent_demo.view.control_overlay.control_overlay import *
 from deZent_demo.view.counting_bloom_filter.counting_bloom_filter_view import *
 from deZent_demo.view.network_graph.network_graph_view import *
-from PySide6.QtCore import QSizeF
+from PySide6.QtCore import QSizeF, QPointF
 
 class PresentationSandbox(Sandbox):
 
@@ -27,9 +24,10 @@ class PresentationSandbox(Sandbox):
         self._network_graph_gateways: dict[NetworkNodeID, NetworkGraphNode] = { }
         
         self.create()
+        cast(NetworkGraphNode, self._network_graph_central_entity).set_center_pos(QPointF(0.0, 0.0))
         NetworkGraph.arrange_ring(
             list[NetworkGraphNode](self._network_graph_gateways.values()),
-            cast(NetworkGraphNode, self._network_graph_central_entity).center(),
+            QPointF(0.0, 0.0),
             QSizeF(300, 300)
         )
         self._network_graph_view.refit_view()

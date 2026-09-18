@@ -24,11 +24,11 @@ class CBloomFilter(CntDataStructure):
 		# NOTE: this creates a varying n depending on the current round coordinator since n_sm_conn vaires btw GWs
 		# This is deliberately accepted in the expectation that collisions with underestimated n 
 		#   will balance out over time due to overestimated Bloom filters with other round coordinating GWs
-		n = 10 * n_sm_conn * anon_cycles  
+		n = 10 * n_sm_conn * anon_cycles
 
 		# N: size of each counter in the bucket
 		# 2^N occurrences can be counted
-		N = 20 #10  
+		N = 20 #10
 
 		# m: total number of the buckets in the filter
 		# this can be estimated by setting desired false positive rate P

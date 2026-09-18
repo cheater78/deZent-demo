@@ -74,6 +74,8 @@ class PresentationWindow(Styled[PresentationWindowStyle], SandboxWindow):
         self._ctrl_overlay.raise_()
         self._cbf_view.raise_()
 
+        self.showMaximized()
+
         #TODO: debug
         def toggle():
             self._cbf_view.setVisible(not self._cbf_view.isVisible())

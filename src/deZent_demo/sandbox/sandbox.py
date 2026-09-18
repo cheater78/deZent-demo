@@ -13,10 +13,12 @@ from deZent_demo.utils.config.config import *
 class deZentConfig(Config):
     z: int = 4
     dt: timedelta = timedelta(minutes=121)
+    # TODO: measurement bucket granularity
 
 @dataclass
 class SimConfig(Config):
     start_time: datetime = datetime.fromisoformat("2026-01-01")
+    # TODO: measurement interval
     n_gws: int = 7
     n_sms: int = 4
 
