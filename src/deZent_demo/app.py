@@ -22,6 +22,7 @@ class App(QApplication):
         self._window: SandboxWindow = PresentationSandboxWindow()
     
     def __init(self) -> None:
+        self._window.show()
         self._window.sim_start()
 
     def __fini(self) -> None:

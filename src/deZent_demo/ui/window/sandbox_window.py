@@ -14,5 +14,4 @@ class SandboxWindow(Sandbox, QMainWindow):
             sim_config=sim_config,
             **kwargs,
         )
-        self.show()
 
