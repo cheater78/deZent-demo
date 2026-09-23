@@ -1,8 +1,8 @@
 from __future__ import annotations
 from typing import override
 
-from .window.window import SandboxWindow
-from .window.presentation_window import PresentationWindow
+from .ui.window.sandbox_window import SandboxWindow
+from .presentation.presentation_sandbox_window import PresentationSandboxWindow
 
 from PySide6.QtCore import (
     QCoreApplication,
@@ -19,13 +19,13 @@ class App(QApplication):
         args: list[str] | None = None,
     ) -> None:
         super().__init__(args or [])
-        self._window: SandboxWindow = PresentationWindow()
+        self._window: SandboxWindow = PresentationSandboxWindow()
     
     def __init(self) -> None:
-        self._window.sandbox_start()
+        self._window.sim_start()
 
     def __fini(self) -> None:
-        self._window.sandbox_stop()
+        self._window.sim_stop()
 
     @override
     @staticmethod

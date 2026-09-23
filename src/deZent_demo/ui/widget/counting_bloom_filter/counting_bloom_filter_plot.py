@@ -1,5 +1,6 @@
+from __future__ import annotations
 from deZent_demo.utils.data.counting_structure.counting_bloom_filter import CBloomFilter
-from deZent_demo.view.utils import *
+from deZent_demo.ui.utils import *
 
 import math
 from typing import override
@@ -28,22 +29,85 @@ from PySide6.QtWidgets import (
     QGraphicsWidget,
 )
 
-class CBFPlot(QGraphicsWidget):
+@dataclass
+class CBFPlotStyle(Style):
+    bar_style: BorderedStyle = field(default_factory=lambda: BorderedStyle(
+        QBrush(QColor(Qt.GlobalColor.blue)),
+        LineStyle(QPen(QColor(Qt.GlobalColor.blue), 1))
+    ))
+    bar_focus_neighbor_style: BorderedStyle = field(default_factory=lambda: BorderedStyle(
+        QBrush(QColor(Qt.GlobalColor.darkBlue)),
+        LineStyle(QPen(QColor(Qt.GlobalColor.darkBlue), 1))
+    ))
+
+    axis_line_style: LineStyle = field(default_factory=lambda: LineStyle(
+        QPen(QColor(Qt.GlobalColor.black), 1)
+    ))
+    axis_line_arrow_style: GraphicsArrowStyle = field(default_factory=lambda: GraphicsArrowStyle(
+        10,
+        45,
+        LineStyle(QPen(QColor(Qt.GlobalColor.black), 1))
+    ))
+    axis_line_marker_style: LineStyle = field(default_factory=lambda: LineStyle(
+        QPen(QColor(Qt.GlobalColor.black), 1)
+    ))
+    axis_line_marker_label_style: TextStyle = field(default_factory=lambda: TextStyle(
+        QBrush(QColor(Qt.GlobalColor.black)),
+        LineStyle(QPen(QColor(Qt.GlobalColor.black), 1)),
+        QFont('Arial', 9),
+    ))
+
+    focus_arrow_style: GraphicsArrowStyle = field(default_factory=lambda: GraphicsArrowStyle(
+        10,
+        45,
+        LineStyle(QPen(QColor(Qt.GlobalColor.red), 2))
+    ))
+    focus_avg_line_style: LineStyle = field(default_factory=lambda: LineStyle(
+        QPen(QColor(Qt.GlobalColor.red), 2)
+    ))
+    focus_avg_line_label_style: TextStyle = field(default_factory=lambda: TextStyle(
+        QBrush(QColor(Qt.GlobalColor.red)),
+        LineStyle(QPen(QColor(Qt.GlobalColor.red), 1)),
+        QFont('Arial', 9),
+    ))
+
+# TODO: rework CBFPlot to render at content-depended size, then fit to view
+# keep static components (text, line width, ..?) transform independent
+# contrary bars, x axis, y axis, ..? need to scale 
+# textitem.setFlag(QGraphicsTextItem.GraphicsItemFlag.ItemIgnoresTransformations, True)
+# TODO ~
+
+class CBFPlot(Styled[CBFPlotStyle], QGraphicsWidget):
 
     def __init__(self,
         cbf: CBloomFilter | None = None,
         focus: set[int] = set[int](),
+        style: CBFPlotStyle = CBFPlotStyle(),
         parent: QGraphicsItem | None = None) -> None:
-        super().__init__(parent=parent)
+        super().__init__(
+            style=style,
+            parent=parent,
+        )
         self.setFlags(
-            QGraphicsItem.GraphicsItemFlag.ItemIsMovable |
+            QGraphicsItem.GraphicsItemFlag.ItemIsMovable | # TODO: needed?!
             QGraphicsItem.GraphicsItemFlag.ItemIsSelectable |
             QGraphicsItem.GraphicsItemFlag.ItemSendsGeometryChanges
         )
-        self.__init_plot(cbf, focus)
+        self.__init_plot(cbf, focus, style=style)
         self.__create_plot()
 
-    def __init_plot(self, cbf: CBloomFilter | None = None, focus: set[int] = set[int](), scene_dimensions: QSizeF = QSizeF(800, 300)) -> None:
+    @override
+    def on_style_change(self, new_style: CBFPlotStyle) -> None:
+        #TODO: impl style updates
+        pass
+
+    def __init_plot(
+        self,
+        cbf: CBloomFilter | None = None,
+        focus: set[int] = set[int](),
+        scene_dimensions: QSizeF = QSizeF(800, 300),
+        style: CBFPlotStyle = CBFPlotStyle(),
+    ) -> None:
         self.cbf: CBloomFilter | None = cbf
 
         self.dimensions: QSizeF = scene_dimensions
@@ -52,7 +116,7 @@ class CBFPlot(QGraphicsWidget):
 
         # plot focus: show only specified bars, all if empty
         self.focus: set[int] = focus
-        self.focus_neighbor_extent: int = 3
+        self.focus_neighbor_extent: int = 1
 
         # plot native dimensions
         self.__set_logical_size()
@@ -88,7 +152,7 @@ class CBFPlot(QGraphicsWidget):
 
         self.focus_arrow_scale: float = 0.04 * self.y_max # TODO
         self.focus_arrow_size: float = self.y_scale * self.focus_arrow_scale
-        self.focus_arrow_width_scale: float = 0.4 # TODO
+        self.focus_arrow_width_scale: float = 0.1 # TODO
         self.focus_arrow_width: float = self.focus_arrow_width_scale * self.x_scale
         self.focus_arrow_margin_scale: float = 0.03 * self.y_max # TODO
         self.focus_arrow_margin: float = self.y_scale * self.focus_arrow_margin_scale
@@ -342,16 +406,16 @@ class CBFPlot(QGraphicsWidget):
             self.__xaxis_pos(argument), + self.axis_marker_width / 2,
             parent=self
         )
-        marker.setPen(self.axis_line_pen)
+        marker.setPen(self._style.axis_line_marker_style.pen)
         self.xaxis_markers[argument] = marker
 
         marker_label: QGraphicsSimpleTextItem = QGraphicsSimpleTextItem(
             f"{argument}",
             parent=self
         )
-        marker_label.setBrush(self.axis_marker_label_brush)
-        marker_label_font: QFont = marker_label.font()
-        marker_label_font.setPointSize(self.axis_marker_label_font_size)
+        marker_label.setBrush(self._style.axis_line_marker_label_style.fill)
+        marker_label.setPen(self._style.axis_line_marker_label_style.border.pen)
+        marker_label.setFont(self._style.axis_line_marker_label_style.font)
 
         text_aabb: QRectF = marker_label.boundingRect()
         marker_label.setPos(
@@ -373,7 +437,7 @@ class CBFPlot(QGraphicsWidget):
 
         for _ in range(spacer_line_count):
             self.xaxis_lines.append(QGraphicsLineItem(spacer_line, parent=self))
-            self.xaxis_lines[-1].setPen(self.axis_line_pen)
+            self.xaxis_lines[-1].setPen(self._style.axis_line_style.pen)
             self.xaxis_lines[-1].setPos(xpos, 0)
             xpos += spacer_unit # spacer_line
             xpos += spacer_unit # empty unit
@@ -398,7 +462,7 @@ class CBFPlot(QGraphicsWidget):
             x_pos + segment0_xsize, 0,
         )
         self.xaxis_lines.append(QGraphicsLineItem(segment0, parent=self))
-        self.xaxis_lines[-1].setPen(self.axis_line_pen)
+        self.xaxis_lines[-1].setPen(self._style.axis_line_style.pen)
         x_pos += segment0_xsize
 
         if not self.focus:
@@ -430,7 +494,7 @@ class CBFPlot(QGraphicsWidget):
                     self.__xaxis_pos(section_last_neighbor) - self.__xaxis_pos(section_first_neighbor) + self.bar_interval, 0,
                 )
                 self.xaxis_lines.append(QGraphicsLineItem(segmenti, parent=self))
-                self.xaxis_lines[-1].setPen(self.axis_line_pen)
+                self.xaxis_lines[-1].setPen(self._style.axis_line_style.pen)
                 self.xaxis_lines[-1].setPos(self.__xaxis_pos(section_first_neighbor) - (self.bar_interval / 2), 0)
 
                 x_pos = self.__xaxis_pos(section_last_neighbor) + (self.bar_interval / 2)
@@ -439,6 +503,7 @@ class CBFPlot(QGraphicsWidget):
             QPointF(int(self.xaxis_arrow_len), 0),
             parent=self
         )
+        self.xaxis_arrow.set_style(self._style.axis_line_arrow_style)
         self.xaxis_arrow.setPos(x_pos, 0)
 
     def __set_yaxis_marker(self, value: int) -> None:
@@ -447,16 +512,16 @@ class CBFPlot(QGraphicsWidget):
             + self.axis_marker_width / 2, self.__yaxis_pos(value),
             parent=self
         )
-        marker.setPen(self.axis_line_pen)
+        marker.setPen(self._style.axis_line_marker_style.pen)
         self.yaxis_markers[value] = marker
 
         marker_label: QGraphicsSimpleTextItem = QGraphicsSimpleTextItem(
             f"{value}",
             parent=self
         )
-        marker_label.setBrush(self.axis_marker_label_brush)
-        marker_label_font: QFont = marker_label.font()
-        marker_label_font.setPointSize(self.axis_marker_label_font_size)
+        marker_label.setPen(self._style.axis_line_marker_label_style.border.pen)
+        marker_label.setBrush(self._style.axis_line_marker_label_style.fill)
+        marker_label.setFont(self._style.axis_line_marker_label_style.font)
 
         text_aabb: QRectF = marker_label.boundingRect()
         marker_label.setPos(
@@ -475,6 +540,7 @@ class CBFPlot(QGraphicsWidget):
             QPointF(0, - self.yaxis_arrow_len),
             parent=self
         )
+        self.yaxis_arrow.set_style(self._style.axis_line_arrow_style)
         self.yaxis_arrow.setPos(QPointF(0, - yaxis_len))
 
         yaxis_line: QLineF = QLineF(
@@ -482,7 +548,7 @@ class CBFPlot(QGraphicsWidget):
             0, -yaxis_len,
         )
         self.yaxis_line = QGraphicsLineItem(yaxis_line, parent=self)
-        self.yaxis_line.setPen(self.axis_line_pen)
+        self.yaxis_line.setPen(self._style.axis_line_marker_style.pen)
 
         self.__set_yaxis_marker(math.floor(self.y_min))
         self.__set_yaxis_marker(math.ceil(self.y_max))
@@ -493,8 +559,8 @@ class CBFPlot(QGraphicsWidget):
 
     def __set_bar(self, argument: int, value: int, primary: bool = True) -> None:
         bar_rect_item: QGraphicsRectItem = self.bars.get(argument, QGraphicsRectItem(parent=self))
-        bar_rect_item.setPen(self.bar_border_pen if primary else self.bar_sec_border_pen)        
-        bar_rect_item.setBrush(self.bar_infill_brush if primary else self.bar_sec_infill_brush)
+        bar_rect_item.setPen(self._style.bar_style.border.pen if primary else self._style.bar_focus_neighbor_style.border.pen)        
+        bar_rect_item.setBrush(self._style.bar_style.fill if primary else self._style.bar_focus_neighbor_style.fill)
         # hcentered bar, bot to top (-y)
         bar_rect: QRectF = QRectF(
             0,              self.__yaxis_pos(0),
@@ -515,6 +581,7 @@ class CBFPlot(QGraphicsWidget):
         ypos_bar: float = self.__yaxis_pos(value) - self.focus_arrow_size - self.focus_arrow_margin
         arrow.setPos(self.__xaxis_pos(argument), ypos_top if on_top else ypos_bar)
         arrow.setZValue(1)
+        arrow.set_style(self._style.focus_arrow_style)
         self.focus_arrows[argument] = arrow
 
     def __set_focus_avg(self) -> None:
@@ -538,7 +605,7 @@ class CBFPlot(QGraphicsWidget):
             focus_avg_line_size, 0,
         )
         self.focus_avg_line = QGraphicsLineItem(focus_avg_line, parent=self)
-        self.focus_avg_line.setPen(self.focus_avg_line_pen) # TODO
+        self.focus_avg_line.setPen(self._style.focus_avg_line_style.pen) # TODO
         self.focus_avg_line.setPos(0, self.__yaxis_pos(value))
         self.focus_avg_line.setZValue(-0.1)
 
@@ -546,9 +613,9 @@ class CBFPlot(QGraphicsWidget):
             f"{value}",
             parent=self
         )
-        self.focus_avg_line_label.setBrush(self.focus_avg_line_label_brush)
-        label_font: QFont = self.focus_avg_line_label.font()
-        label_font.setPointSize(self.axis_marker_label_font_size)
+        self.focus_avg_line_label.setPen(self._style.focus_avg_line_label_style.border.pen)
+        self.focus_avg_line_label.setBrush(self._style.focus_avg_line_label_style.fill)
+        self.focus_avg_line_label.setFont(self._style.focus_avg_line_label_style.font)
 
         text_aabb: QRectF = self.focus_avg_line_label.boundingRect()
         self.focus_avg_line_label.setPos(

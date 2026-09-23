@@ -10,17 +10,11 @@ from deZent_demo.instrument.deZent_gateway_instrumentor import *
 from deZent_demo.utils.config.config import *
 
 @dataclass
-class deZentConfig(Config):
-    z: int = 4
-    dt: timedelta = timedelta(minutes=121)
-    # TODO: measurement bucket granularity
-
-@dataclass
 class SimConfig(Config):
     start_time: datetime = datetime.fromisoformat("2026-01-01")
-    # TODO: measurement interval
-    n_gws: int = 7
-    n_sms: int = 4
+    measurement_interval: timedelta = timedelta(minutes=15)
+    n_gws: int = 5
+    n_sms: int = 3
 
 class Sandbox:
     
@@ -28,6 +22,7 @@ class Sandbox:
         self,
         deZent_config: deZentConfig = deZentConfig(),
         sim_config: SimConfig = SimConfig(),
+        **kwargs: Any,
     ) -> None:
         self._deZent_config = deZent_config
         self._sim_config: SimConfig = sim_config
@@ -40,8 +35,10 @@ class Sandbox:
         self._dZ_init_ccc_id: NetworkNodeID = 1
         self._dZ_central_entity: deZentCentralEntity | None = None
         self._dZ_gws: dict[NetworkNodeID, deZentGateway] = { }
+        
+        super().__init__(**kwargs)
 
-    def create(self) -> None:
+    def create_sandbox(self) -> None:
         self.create_central_entity(self._dZ_ce_id)
         n_gws = self._sim_config.n_gws
         for i in range(n_gws):
@@ -55,7 +52,6 @@ class Sandbox:
             if gw_id == n_gws:
                 self.link_gateway_to_gateway(gw_id, 1)
             self.link_gateway_to_gateway(prev_id, gw_id)
-
     
     def create_central_entity(self, ce_id: NetworkNodeID):
         if self._dZ_central_entity is not None:
@@ -74,12 +70,12 @@ class Sandbox:
         network_node = self._network.create_node(id)
         dz_gw = deZentGateway(
             self._sim_time_env,
-            self._deZent_config.dt,
-            self._deZent_config.z,
+            self._deZent_config,
             network_node,
             ce_id = ce_id,
             next_id = next_id,
-            n_sm_conn = self._sim_config.n_sms
+            measurement_interval=self._sim_config.measurement_interval,
+            n_sm_conn = self._sim_config.n_sms,
         )
         self._dZ_gws[id] = dz_gw
     

@@ -28,7 +28,6 @@ class RealTimeEnv(AbstractTimeEnv):
         time.sleep(remaining_s) # yield until time is reached
         return True
 
-
 class SimTimeEnv(AbstractTimeEnv):
 
     def __init__(self, init_time: datetime) -> None:
@@ -96,6 +95,3 @@ class SimTimeEnv(AbstractTimeEnv):
         # Wake threads after releasing the lock.
         for event in wake_events:
             event.set()
-
-class NetworkSimTimeEnv(SimTimeEnv):
-    pass

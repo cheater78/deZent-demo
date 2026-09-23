@@ -3,7 +3,7 @@ from abc import abstractmethod
 from typing import Any, cast, override
 
 from .directed_graph import DirectedGraphNode, DirectedGraphEdge, DirectedGraph
-from deZent_demo.view.utils import GraphicsContainerItem
+from deZent_demo.ui.utils import GraphicsContainerItem
 
 from PySide6.QtWidgets import (
     QGraphicsItem

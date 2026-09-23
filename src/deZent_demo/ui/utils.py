@@ -1,10 +1,11 @@
 import math
 from typing import Any, TypeVar
 
-from deZent_demo.view.style.style import *
+from deZent_demo.ui.style.style import *
 
 from PySide6.QtCore import (
     QPoint, QPointF,
+    QSizeF,
     QRectF,
     Qt,
     QLineF,
@@ -52,8 +53,77 @@ class GraphicsContainerItem(QGraphicsItem):
 ScalarT = TypeVar("ScalarT", int, float)
 PointT = TypeVar("PointT", QPoint, QPointF)
 
-def rect_grow_to_include(rect: QRectF, point: QPoint | QPointF) -> QRectF:
+def rect_grow_to_include(
+    rect: QRectF,
+    point: QPoint | QPointF
+) -> QRectF:
     return rect.united(QRectF(point, point))
+
+def rect_expand_by_relative_margin(
+    rect: QRectF,
+    margin: QSizeF,
+) -> QRectF:
+    """
+    Expand ``rect`` by margins relative to its own dimensions.
+    """
+    if rect.isEmpty() or not rect.isValid():
+        return QRectF()
+
+    margin_x: float = rect.width() * margin.width()
+    margin_y: float = rect.height() * margin.height()
+
+    return rect.adjusted(
+        -margin_x,
+        -margin_y,
+        margin_x,
+        margin_y,
+    )
+
+def rect_clamped_rect_center(
+    rect: QRectF,
+    clamp: QRectF,
+) -> QPointF:
+    desired_center: QPointF = rect.center()
+    viewport_width: float = rect.width()
+    viewport_height: float = rect.height()
+
+    center_x: float = 0.0
+    center_y: float = 0.0
+
+    if viewport_width >= clamp.width():
+        center_x = clamp.center().x()
+    else:
+        viewport_half_width: float = viewport_width / 2.0
+        lower_bound: float = clamp.left() + viewport_half_width
+        upper_bound: float = clamp.right() - viewport_half_width
+        center_x = max(lower_bound, min(desired_center.x(), upper_bound)) # clamp
+
+    if viewport_height >= clamp.height():
+        center_y: float = clamp.center().y()
+    else:
+        viewport_half_height: float = viewport_height / 2.0
+        lower_bound: float = clamp.top() + viewport_half_height
+        upper_bound: float = clamp.bottom() - viewport_half_height
+        center_y = max(lower_bound, min(desired_center.y(), upper_bound)) # clamp
+
+    return QPointF(center_x, center_y)
+
+def ellipse_hit(
+    hit_origin: QPointF,
+    ellipse_center: QPointF,
+    ellipse_size: QSizeF,
+) -> QPointF | None:
+    he_x, he_y = (ellipse_size / 2).toTuple()
+    d_x, d_y = (hit_origin - ellipse_center).toTuple()
+
+    if he_x == 0 \
+        or he_y == 0:
+        return None
+    t = math.sqrt((d_x / he_x)**2 + (d_y / he_y)**2)
+    if t == 0:
+        return None
+
+    return QPointF((d_x / t) + he_x, (d_y / t) + he_y)
 
 @dataclass
 class GraphicsArrowStyle(Style):
@@ -127,19 +197,25 @@ class GraphicsArrow(Styled[GraphicsArrowStyle], GraphicsContainerItem):
         )
         self.main_line.setPen(style.line_style.pen)
 
-        vn: QVector2D = QVector2D(self.arrow_vector)
-        vn.normalize()
+        angle: float = style.angle % 90
 
-        a_rad: float = (style.angle / 180) * math.pi # deg to rad
-        w_he: float = style.width / 2 # full width to half extent
-        wings_on_main: float = w_he / math.tan(a_rad) # length of wings on main line
-        wings_on_main_v: QVector2D = vn * wings_on_main
+        if angle > 0.0:
+            vn: QVector2D = QVector2D(self.arrow_vector)
+            vn.normalize()
 
-        v_r: QVector2D = QVector2D(+ vn.y(), - vn.x()) # rotate cw half pi
-        v_l: QVector2D = QVector2D(- vn.y(), + vn.x()) # rotate ccw half pi
+            a_rad: float = (angle / 180) * math.pi # deg to rad
+            w_he: float = style.width / 2 # full width to half extent
+            wings_on_main: float = w_he / math.tan(a_rad) # length of wings on main line
+            wings_on_main_v: QVector2D = vn * wings_on_main
 
-        self.right = (QVector2D(self.arrow_vector) - wings_on_main_v + v_l * w_he).toPointF() # I miss glm alr
-        self.left = (QVector2D(self.arrow_vector) - wings_on_main_v + v_r * w_he).toPointF()
+            v_r: QVector2D = QVector2D(+ vn.y(), - vn.x()) # rotate cw half pi
+            v_l: QVector2D = QVector2D(- vn.y(), + vn.x()) # rotate ccw half pi
+
+            self.right = (QVector2D(self.arrow_vector) - wings_on_main_v + v_l * w_he).toPointF() # I miss glm alr
+            self.left = (QVector2D(self.arrow_vector) - wings_on_main_v + v_r * w_he).toPointF()
+        else: # angle == 0, make them vanish -> just a line
+            self.right = self.arrow_vector
+            self.left = self.arrow_vector
 
         self.arrow_lline.setLine(
             QLineF(

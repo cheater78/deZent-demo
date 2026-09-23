@@ -6,22 +6,29 @@ from deZent_demo.ami.smart_meter_profile_distribution import SmartMeterProfileDi
 from deZent_demo.ami.measurement_log import RecordLog, PubLog
 from deZent_demo.ami.gateway_profile import GatewayProfileType
 from deZent_demo.network import *
+from deZent_demo.utils.config.config import *
 from deZent_demo.utils.data.counting_structure import *
 from deZent_demo.utils.time_env import *
 
 from deZent_demo.instrument.deZent_gateway_instrumentor import *
+
+@dataclass
+class deZentConfig(Config):
+    z: int = 4
+    dt: timedelta = timedelta(minutes=121)
+    # TODO: measurement bucket granularity
 
 class deZentGateway(Gateway, deZentNode):
     
     def __init__(
         self,
         env: AbstractTimeEnv,
-        dt: timedelta,
-        z: int,
+        config: deZentConfig,
         node: AbstractNetworkNode,
         ce_id: NetworkNodeID | None = None,
         next_id: NetworkNodeID | None = None,
         gw_profile_type: GatewayProfileType = GatewayProfileType.STANDARD,
+        measurement_interval: timedelta = timedelta(minutes=15),
         n_sm_conn: int = 1,
         sm_profile_distribution_type: SmartMeterProfileDistributionType = SmartMeterProfileDistributionType.TK,
         instrumentor: Instrumentor = Instrumentor(),
@@ -37,18 +44,16 @@ class deZentGateway(Gateway, deZentNode):
             instrumentor=instrumentor,
             **kwargs
         )
-        self.env: AbstractTimeEnv = env
+        self._env: AbstractTimeEnv = env
 
         self._network_node.register_msg_cb(self._node_msg_cb_)
 
-        self.coord: bool = False
-        self.coord_noise: int = 0
+        self._coord: bool = False
+        self._coord_noise: int = 0
 
-        self.delta_t: timedelta = dt
-        self.z: int = z
-        self.measurement_interval = timedelta(minutes=15)
-        self.n_cycles_for_anon: int = int(max(1, self.delta_t.seconds/self.measurement_interval.seconds))
-    
+        self._config: deZentConfig = config
+        self._measurement_interval: timedelta = measurement_interval
+        
     def on_coord_round_begin(self, curr_round_time: datetime) -> None:
         if not self.on_coord_wait_for_round_begin(curr_round_time):
             return # waiting was cancelled
@@ -56,7 +61,7 @@ class deZentGateway(Gateway, deZentNode):
         self._instrument(dZGWInstrumentEvent.CCC_ROUND_BEGIN,
             curr_round_time)
 
-        self.coord = True
+        self._coord = True
         self.on_coord_collection_round_begin(curr_round_time)
 
     '''
@@ -67,13 +72,14 @@ class deZentGateway(Gateway, deZentNode):
         self._instrument(dZGWInstrumentEvent.CCC_COLLECTION_ROUND_BEGIN,
             curr_round_time)
         
-        cnt_struct: CntDataStructure = CBloomFilter.create(self.n_sm_conn, self.n_cycles_for_anon)
+        cnt_struct: CntDataStructure = CBloomFilter.create(self.n_sm_conn, 
+            anon_cycles=int(max(1.0, self._config.dt.seconds / self._measurement_interval.seconds)))
         self._instrument(dZGWInstrumentEvent.CCC_COLLECTION_ROUND_BEGIN_CBF_CREATED,
             curr_round_time, cnt_struct)
         
         cnt_struct = self.__coord_add_initial_noise_to_cnt_struct__(cnt_struct)
         self._instrument(dZGWInstrumentEvent.CCC_COLLECTION_ROUND_BEGIN_CBF_NOISE_ADDED,
-            curr_round_time, cnt_struct, self.coord_noise)
+            curr_round_time, cnt_struct, self._coord_noise)
         
         self.send_collection_to_next(cnt_struct, curr_round_time)
 
@@ -87,12 +93,12 @@ class deZentGateway(Gateway, deZentNode):
         
         cnt_struct = self.__coord_remove_initial_noise_from_cnt_struct__(cnt_struct)
         self._instrument(dZGWInstrumentEvent.CCC_COLLECTION_ROUND_END_CBF_NOISE_REMOVED,
-            curr_round_time, cnt_struct, self.coord_noise)
+            curr_round_time, cnt_struct, self._coord_noise)
 
         # NOTE: dangerzone! what abt byzantine CCCs, not ensuring z exposes non-anon. data        
-        cnt_struct.ensure_min_cnt_z(self.z)
+        cnt_struct.ensure_min_cnt_z(self._config.z)
         self._instrument(dZGWInstrumentEvent.CCC_COLLECTION_ROUND_END_CBF_Z_ENSURED,
-            curr_round_time, cnt_struct, self.z)
+            curr_round_time, cnt_struct, self._config.z)
 
         # start publication round with random 0.0 <= p_pub < 1.0
         p_pub: float = random.random()
@@ -125,7 +131,7 @@ class deZentGateway(Gateway, deZentNode):
         self._instrument(dZGWInstrumentEvent.CCC_ROUND_END,
             curr_round_time)
         
-        self.coord = False
+        self._coord = False
         self.send_coord_round_begin_to_next(curr_round_time)
 
     '''
@@ -135,7 +141,7 @@ class deZentGateway(Gateway, deZentNode):
         self._instrument(dZGWInstrumentEvent.GW_ON_COLLECTION_ROUND,
             curr_round_time, cnt_struct)
         
-        self.record_log.remove_records_older_dt(curr_round_time, self.delta_t)
+        self.record_log.remove_records_older_dt(curr_round_time, self._config.dt)
         # get measurement from smart meters connected to gw
         self.collect_curr_measurement_from_sms(curr_round_time)
         self._instrument(dZGWInstrumentEvent.GW_ON_COLLECTION_ROUND_SM_MEASUREMENTS_COLLECTED,
@@ -145,7 +151,7 @@ class deZentGateway(Gateway, deZentNode):
         self._instrument(dZGWInstrumentEvent.GW_ON_COLLECTION_ROUND_RECORDS_ADDED,
             curr_round_time, cnt_struct)
 
-        if self.coord: # collection round returned to the CCC
+        if self._coord: # collection round returned to the CCC
             self.on_coord_collection_round_end(cnt_struct, curr_round_time)
         else:
             self.send_collection_to_next(cnt_struct, curr_round_time)
@@ -197,7 +203,7 @@ class deZentGateway(Gateway, deZentNode):
             # publish all records at once
             self.send_publication_to_ce(published_records)
         
-        if self.coord:
+        if self._coord:
             self.on_coord_publication_round_end(cnt_struct, p_pub, curr_round_time)
         else:
             self.send_publication_to_next(cnt_struct, p_pub, curr_round_time)
@@ -206,7 +212,7 @@ class deZentGateway(Gateway, deZentNode):
         coord waits for the current round time stamp to be reached before starting the round
     '''
     def on_coord_wait_for_round_begin(self, curr_round_time: datetime) -> bool:
-        return self.env.wait_until(curr_round_time)
+        return self._env.wait_until(curr_round_time)
 
     def _node_msg_cb_(self, sender: NetworkNodeID, msg: Message) -> None:
         match msg:
@@ -250,7 +256,7 @@ class deZentGateway(Gateway, deZentNode):
         # NOTE: CCC promotion is currently cyclic
         # TODO: proper CCC election
         msg: MessageDeZentRoundBegin = MessageDeZentRoundBegin(
-            curr_round_time + self.measurement_interval
+            curr_round_time + self._measurement_interval
         )
         self._instrument(dZGWInstrumentEvent.CCC_SEND_COORD_ROUND_BEGIN_TO_NEXT,
             self.get_next(), msg)
@@ -260,10 +266,10 @@ class deZentGateway(Gateway, deZentNode):
         return random.randint(20,30)
 
     def __coord_add_initial_noise_to_cnt_struct__(self, cnt_struct: CntDataStructure) -> CntDataStructure:
-        self.coord_noise = self.__coord_sample_initial_noise__()
-        cnt_struct.add(self.coord_noise)
+        self._coord_noise = self.__coord_sample_initial_noise__()
+        cnt_struct.add(self._coord_noise)
         return cnt_struct
     
     def __coord_remove_initial_noise_from_cnt_struct__(self, cnt_struct: CntDataStructure) -> CntDataStructure:
-        cnt_struct.remove(self.coord_noise)
+        cnt_struct.remove(self._coord_noise)
         return cnt_struct

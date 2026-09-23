@@ -1,27 +1,33 @@
 from __future__ import annotations
-from .graphics_directed_graph import GraphicsDirectedGraphNode, GraphicsDirectedGraphEdge, GraphicsDirectedGraph
 
-from deZent_demo.view.utils import *
-from deZent_demo.view.style.style import *
-from deZent_demo.utils.config.config import *
-
-from typing import cast, Any
+from typing import cast, Any, Callable
 import math
 
 from PySide6.QtWidgets import (
     QGraphicsItem,
     QGraphicsEllipseItem,
+    QGraphicsSimpleTextItem,
+    QGraphicsSceneMouseEvent,
 )
 from PySide6.QtGui import (
     QColor, 
     QPen,
 )
-from PySide6.QtCore import Qt, QSizeF, QPointF
+from PySide6.QtCore import (
+    Qt,
+    QPointF,
+    QSizeF,
+)
+
+from .graphics_directed_graph import GraphicsDirectedGraphNode, GraphicsDirectedGraphEdge, GraphicsDirectedGraph
+from deZent_demo.ui.utils import *
+from deZent_demo.ui.style.style import *
+from deZent_demo.utils.config.config import *
 
 @dataclass
 class NetworkGraphNodeStyle(Style):
-    ellipse_width: float = 60.0
-    ellipse_height: float = 40.0
+    ellipse_width: float = 100.0
+    ellipse_height: float = 70.0
     ellipse_style: BorderedStyle = field(
         default_factory=lambda: BorderedStyle(
             QBrush(QColor(Qt.GlobalColor.lightGray)),
@@ -36,50 +42,15 @@ class NetworkGraphNodeStyle(Style):
             )
         )
     )
-
-@dataclass
-class NetworkGraphEdgeStyle(Style):
-    edge_arrow_style: GraphicsArrowStyle = field(
-        default_factory=lambda: GraphicsArrowStyle(
-            10,
-            33,
-            LineStyle(
-                QPen(
-                    QColor(Qt.GlobalColor.gray),
-                    2,
-                    Qt.PenStyle.SolidLine,
-                    Qt.PenCapStyle.RoundCap,
-                    Qt.PenJoinStyle.RoundJoin,
-                )
-            )
+    label_style: TextStyle = field(
+        default_factory=lambda: TextStyle(
+            QBrush(QColor(Qt.GlobalColor.black)),
+            LineStyle(QPen(QColor(Qt.GlobalColor.black), 1)),
+            QFont('Arial', 12)
         )
     )
 
-@dataclass
-class NetworkGraphStyle(Style):
-    node_spacing: QSizeF = field(
-        default_factory=lambda: QSizeF(234.0, 234.0)
-    )
-
 class NetworkGraphNode(Styled[NetworkGraphNodeStyle], GraphicsDirectedGraphNode):
-
-    @staticmethod
-    def ellipse_hit(
-        hit_origin: QPointF,
-        ellipse_center: QPointF,
-        ellipse_size: QSizeF,
-    ) -> QPointF | None:
-        he_x, he_y = (ellipse_size / 2).toTuple()
-        d_x, d_y = (hit_origin - ellipse_center).toTuple()
-
-        if he_x == 0 \
-            or he_y == 0:
-            return None
-        t = math.sqrt((d_x / he_x)**2 + (d_y / he_y)**2)
-        if t == 0:
-            return None
-
-        return QPointF((d_x / t) + he_x, (d_y / t) + he_y)
 
     def __init__(
         self,
@@ -89,6 +60,7 @@ class NetworkGraphNode(Styled[NetworkGraphNodeStyle], GraphicsDirectedGraphNode)
         **kwargs: Any
     ) -> None:
         self._visu: QGraphicsEllipseItem = QGraphicsEllipseItem(0,0,0,0)
+        self._label: QGraphicsSimpleTextItem = QGraphicsSimpleTextItem()
         
         super().__init__(
             style=style,
@@ -98,6 +70,7 @@ class NetworkGraphNode(Styled[NetworkGraphNodeStyle], GraphicsDirectedGraphNode)
         )
         
         self._visu.setParentItem(self)
+        self._label.setParentItem(self)
 
     @override
     def on_style_change(self, new_style: NetworkGraphNodeStyle) -> None:
@@ -107,7 +80,15 @@ class NetworkGraphNode(Styled[NetworkGraphNodeStyle], GraphicsDirectedGraphNode)
         )
         self._visu.setPen(new_style.ellipse_style.border.pen)
         self._visu.setBrush(new_style.ellipse_style.fill)
-        return
+
+        self._label.setPen(new_style.label_style.border.pen)
+        self._label.setBrush(new_style.label_style.fill)
+        self._label.setFont(new_style.label_style.font)
+        self._label.setPos(self._visu.boundingRect().center() - self._label.boundingRect().center())
+
+    def set_label(self, label: str) -> None:
+        self._label.setText(label)
+        self._label.setPos(self._visu.boundingRect().center() - self._label.boundingRect().center())
 
     def link_to(self, node: NetworkGraphNode) -> NetworkGraphEdge:
         if not isinstance(self._graph, NetworkGraph):
@@ -119,10 +100,91 @@ class NetworkGraphNode(Styled[NetworkGraphNodeStyle], GraphicsDirectedGraphNode)
     def socket_pos(self, connecting_from: QPointF | None = None) -> QPointF:
         if connecting_from is None:
             return GraphicsDirectedGraphNode.socket_pos(self)
-        hit: QPointF | None = self.ellipse_hit(connecting_from, self.center(), self.boundingRect().size())
+        hit: QPointF | None = ellipse_hit(connecting_from, self.center(), self.boundingRect().size())
         if hit is None:
             return GraphicsDirectedGraphNode.socket_pos(self)
         return hit
+
+class NetworkGraphGatewayNodeStyle(Style):
+    #TODO
+    pass
+
+NetworkGraphGatewayNodeInteractionCB = Callable[[], None]
+
+class NetworkGraphGatewayNode(NetworkGraphNode): # TODO: inheritance friendly Styled[]
+    # TODO: cleanup, just PoC for now
+    def __init__(
+        self,
+        graph: NetworkGraph,
+        style: NetworkGraphNodeStyle = NetworkGraphNodeStyle(),
+        parent: QGraphicsItem | None = None,
+        **kwargs: Any
+    ) -> None:
+        self._interaction_token: QGraphicsEllipseItem = QGraphicsEllipseItem(0,0,0,0)
+        self._coordinator_token: QGraphicsSimpleTextItem = QGraphicsSimpleTextItem("CCC")
+        
+        super().__init__(graph, style, parent, **kwargs)
+
+        self._interaction_token.setParentItem(self)
+        self._interaction_token.setZValue(1) # raise TODO: edges are above, but this doesnt change it
+
+        self._coordinator_token.setParentItem(self)
+        self._coordinator_token.setZValue(1)
+
+    @override
+    def on_style_change(self, new_style: NetworkGraphNodeStyle) -> None:
+        super().on_style_change(new_style)
+
+        self._interaction_token.setRect(
+            0.0, 0.0,
+            new_style.ellipse_height * 0.2, new_style.ellipse_height * 0.2,
+        )
+        self._interaction_token.setPen(QPen(QColor(Qt.GlobalColor.darkBlue), 1))
+        self._interaction_token.setBrush(QColor(Qt.GlobalColor.blue))
+        hit: QPointF | None = ellipse_hit(self._visu.boundingRect().center() + QPointF(+1.0, -1.0), self._visu.boundingRect().center(), self._visu.boundingRect().size())
+        if hit is None:
+            return
+        self._interaction_token.setPos(hit - self._interaction_token.boundingRect().center())
+
+        self._coordinator_token.setPen(QPen(QColor(Qt.GlobalColor.red), 1))
+        self._coordinator_token.setBrush(QColor(Qt.GlobalColor.red))
+        hit: QPointF | None = ellipse_hit(self._visu.boundingRect().center() + QPointF(-1.0, -1.0), self._visu.boundingRect().center(), self._visu.boundingRect().size())
+        if hit is None:
+            return
+        self._coordinator_token.setPos(hit - self._coordinator_token.boundingRect().center())
+
+    def set_interaction(self, enable: bool) -> None:
+        self._interaction_token.setVisible(enable)
+
+    def set_coordinator(self, enable: bool) -> None:
+        self._coordinator_token.setVisible(enable)
+
+    def mouseDoubleClickEvent(self, event: QGraphicsSceneMouseEvent):
+        if not self._interaction_token.isVisible(): # interaction token visibility determines interactiveness
+            return
+        if event.button() == Qt.MouseButton.LeftButton:
+            print(f"open cbf for {self._label.text()}") # TODO: proper cb
+
+        super().mouseDoubleClickEvent(event)
+
+
+@dataclass
+class NetworkGraphEdgeStyle(Style):
+    edge_arrow_style: GraphicsArrowStyle = field(
+        default_factory=lambda: GraphicsArrowStyle(
+            10,
+            0,
+            LineStyle(
+                QPen(
+                    QColor(Qt.GlobalColor.gray),
+                    2,
+                    Qt.PenStyle.SolidLine,
+                    Qt.PenCapStyle.RoundCap,
+                    Qt.PenJoinStyle.RoundJoin,
+                )
+            )
+        )
+    )
 
 class NetworkGraphEdge(Styled[NetworkGraphEdgeStyle], GraphicsDirectedGraphEdge):
 
@@ -147,6 +209,7 @@ class NetworkGraphEdge(Styled[NetworkGraphEdgeStyle], GraphicsDirectedGraphEdge)
         )
 
         self._visu.setParentItem(self)
+        self._visu.setZValue(0)
         
 
     @override
@@ -168,6 +231,12 @@ class NetworkGraphEdge(Styled[NetworkGraphEdgeStyle], GraphicsDirectedGraphEdge)
         self._visu.update_arrow(v)
         self._visu.setPos(begin_node_surface)
 
+@dataclass
+class NetworkGraphStyle(Style):
+    node_spacing: QSizeF = field(
+        default_factory=lambda: QSizeF(234.0, 234.0)
+    )
+
 class NetworkGraph(Styled[NetworkGraphStyle], GraphicsDirectedGraph):
 
     @staticmethod
@@ -180,11 +249,12 @@ class NetworkGraph(Styled[NetworkGraphStyle], GraphicsDirectedGraph):
 
         if node_count < 3:
             raise RuntimeError(f"cannot arrange_ring with less than 3 nodes!")
-        
+
+        phi0: float = - (math.pi / 2) # start at the top
         dphi: float = (2 * math.pi) / node_count
 
         for i, node in enumerate(nodes):
-            phi: float = dphi * i
+            phi: float = dphi * i + phi0
 
             node_extent: QSizeF = node.boundingRect().size()
             node_spacing_extent: QSizeF = node_spacing
@@ -210,7 +280,14 @@ class NetworkGraph(Styled[NetworkGraphStyle], GraphicsDirectedGraph):
         )
 
     def create_node(self) -> NetworkGraphNode:
-        return NetworkGraphNode(self, parent=self)
+        node = NetworkGraphNode(self, parent=self)
+        self.add_node(node)
+        return node
+
+    def create_gateway_node(self) -> NetworkGraphGatewayNode:
+        node = NetworkGraphGatewayNode(self, parent=self)
+        self.add_node(node)
+        return node
 
     def create_edge(self, begin: NetworkGraphNode, end: NetworkGraphNode) -> NetworkGraphEdge:
         return NetworkGraphEdge(self, begin, end, parent=self)
