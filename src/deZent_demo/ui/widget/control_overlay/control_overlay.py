@@ -63,3 +63,6 @@ class ControlOverlay(Styled[ControlOverlayStyle], QWidget):
         new_style.description_label_style.apply(self._description_label)
         new_style.next_step_label_style.apply(self._next_step_label)
         new_style.next_step_button_style.apply(self._next_step_button)
+
+    def next_button(self) -> QPushButton:
+        return self._next_step_button

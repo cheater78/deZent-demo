@@ -123,6 +123,8 @@ class NetworkGraphGatewayNode(NetworkGraphNode): # TODO: inheritance friendly St
         self._interaction_token: QGraphicsEllipseItem = QGraphicsEllipseItem(0,0,0,0)
         self._coordinator_token: QGraphicsSimpleTextItem = QGraphicsSimpleTextItem("CCC")
         
+        self._interaction_cb: NetworkGraphGatewayNodeInteractionCB | None = None
+
         super().__init__(graph, style, parent, **kwargs)
 
         self._interaction_token.setParentItem(self)
@@ -130,6 +132,9 @@ class NetworkGraphGatewayNode(NetworkGraphNode): # TODO: inheritance friendly St
 
         self._coordinator_token.setParentItem(self)
         self._coordinator_token.setZValue(1)
+
+        self.set_interaction(False)
+        self.set_coordinator(False)
 
     @override
     def on_style_change(self, new_style: NetworkGraphNodeStyle) -> None:
@@ -159,11 +164,15 @@ class NetworkGraphGatewayNode(NetworkGraphNode): # TODO: inheritance friendly St
     def set_coordinator(self, enable: bool) -> None:
         self._coordinator_token.setVisible(enable)
 
+    def set_interaction_cb(self, callback: NetworkGraphGatewayNodeInteractionCB | None) -> None:
+        self._interaction_cb = callback
+
     def mouseDoubleClickEvent(self, event: QGraphicsSceneMouseEvent):
         if not self._interaction_token.isVisible(): # interaction token visibility determines interactiveness
             return
-        if event.button() == Qt.MouseButton.LeftButton:
-            print(f"open cbf for {self._label.text()}") # TODO: proper cb
+        if event.button() == Qt.MouseButton.LeftButton \
+            and self._interaction_cb is not None:
+            self._interaction_cb()
 
         super().mouseDoubleClickEvent(event)
 

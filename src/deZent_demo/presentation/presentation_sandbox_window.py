@@ -114,6 +114,40 @@ class PresentationSandboxWindow(Styled[PresentationSandboxWindowStyle], SandboxW
                 gw.set_interaction(gw_id == 1)
                 gw.set_coordinator(gw_id == 1)
         #TODO: ~debug
+        
+        def gw1_on_noise_added(timestamp: datetime, cbf: CBloomFilter, noise: int):
+            self._cbf_plot_widget.plot().update_cbf(cbf, cbf.inspect_item_indices(noise))
+
+            gw1_node: NetworkGraphGatewayNode = cast(NetworkGraphGatewayNode, self._network_graph_gateways[1])
+            gw1_node.set_coordinator(True)
+            gw1_node.set_interaction(True)
+
+            def node_interaction():
+                self._cbf_plot_widget.show()
+                # TODO: fit in view for nodes as well / allow setting an object to a coord -> move view accordingly
+            gw1_node.set_interaction_cb(node_interaction)
+
+            self._control_overlay.set_content(
+                ControlOverlayContent(
+                    "CBF noise added",
+                    "Initially the coordinator creates the CBF and adds some arbitrary noise.",
+                    "Begin Collection on GW 2",
+                    "Next"
+                )
+            )
+        gw1_instrumentor: dZGWInstrumentor = dZGWInstrumentor()
+        gw1_instrumentor.set_instrument_callback(
+            dZGWInstrumentEvent.CCC_COLLECTION_ROUND_BEGIN_CBF_NOISE_ADDED,
+            gw1_on_noise_added
+        )
+
+        gw1_instrumentor_gate: QtInstrumentorGate = QtInstrumentorGate()
+        gw1_instrumentor_gate.gate_signal.connect(self._control_overlay.next_button().clicked)
+        gw1_instrumentor.set_instrument_gate(
+            dZGWInstrumentEvent.CCC_COLLECTION_ROUND_BEGIN_CBF_NOISE_ADDED,
+            gw1_instrumentor_gate
+        )
+        self._dZ_gws[1].set_instrumentor(gw1_instrumentor)
     
     @override
     def on_style_change(self, new_style: PresentationSandboxWindowStyle):

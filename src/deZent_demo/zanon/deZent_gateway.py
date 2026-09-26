@@ -263,7 +263,7 @@ class deZentGateway(Gateway, deZentNode):
         self.write_next(msg)
 
     def __coord_sample_initial_noise__(self) -> int:
-        return random.randint(20,30)
+        return random.randint(1,15)
 
     def __coord_add_initial_noise_to_cnt_struct__(self, cnt_struct: CntDataStructure) -> CntDataStructure:
         self._coord_noise = self.__coord_sample_initial_noise__()
