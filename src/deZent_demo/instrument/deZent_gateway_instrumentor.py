@@ -48,10 +48,10 @@ class dZGWInstrumentor(GWInstrumentor):
 
         dZGWInstrumentEvent.CCC_COLLECTION_ROUND_BEGIN: [datetime],
         dZGWInstrumentEvent.CCC_COLLECTION_ROUND_BEGIN_CBF_CREATED: [datetime, CBloomFilter],
-        dZGWInstrumentEvent.CCC_COLLECTION_ROUND_BEGIN_CBF_NOISE_ADDED: [datetime, CBloomFilter, int],
+        dZGWInstrumentEvent.CCC_COLLECTION_ROUND_BEGIN_CBF_NOISE_ADDED: [datetime, CBloomFilter, list[int]],
 
         dZGWInstrumentEvent.CCC_COLLECTION_ROUND_END: [datetime, CBloomFilter],
-        dZGWInstrumentEvent.CCC_COLLECTION_ROUND_END_CBF_NOISE_REMOVED: [datetime, CBloomFilter, int],
+        dZGWInstrumentEvent.CCC_COLLECTION_ROUND_END_CBF_NOISE_REMOVED: [datetime, CBloomFilter, list[int]],
         dZGWInstrumentEvent.CCC_COLLECTION_ROUND_END_CBF_Z_ENSURED: [datetime, CBloomFilter, int],
 
         dZGWInstrumentEvent.CCC_PUBLICATION_ROUND_BEGIN: [datetime, CBloomFilter, float],

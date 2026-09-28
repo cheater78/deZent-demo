@@ -117,6 +117,21 @@ class CBloomFilter(CntDataStructure):
 				b_remainder = pad_bits + remainder
 				self.bit_array[idx] ^= b_remainder
 		return
+
+	def secure_sum_add_noise(self, noise: list[int]) -> None:
+		if len(noise) != self.m:
+			raise RuntimeError(f"CBF secure_sum_add_noise: provided noise list was not size of cbf! (noise: {len(noise)}, cbf.m: {self.m})")
+		for i, b_noise in enumerate(noise):
+			b_value: int = ba2int(self.bit_array[i])
+			self.bit_array[i] = int2ba(b_value + b_noise)
+
+	def secure_sum_remove_noise(self, noise: list[int]) -> None:
+		if len(noise) != self.m:
+			raise RuntimeError(f"CBF secure_sum_remove_noise: provided noise list was not size of cbf! (noise: {len(noise)}, cbf.m: {self.m})")
+		for i, b_noise in enumerate(noise):
+			b_value: int = ba2int(self.bit_array[i])
+			# NOTE: if this fails you removed the noise alr, atleast partially
+			self.bit_array[i] = int2ba(b_value - b_noise) 
 	
 	def print_cnt_struct(self):
 		line_cnt: int = 0

@@ -49,7 +49,7 @@ class deZentGateway(Gateway, deZentNode):
         self._network_node.register_msg_cb(self._node_msg_cb_)
 
         self._coord: bool = False
-        self._coord_noise: int = 0
+        self._coord_noise: list[int] = []
 
         self._config: deZentConfig = config
         self._measurement_interval: timedelta = measurement_interval
@@ -262,14 +262,23 @@ class deZentGateway(Gateway, deZentNode):
             self.get_next(), msg)
         self.write_next(msg)
 
-    def __coord_sample_initial_noise__(self) -> int:
-        return random.randint(1,15)
-
     def __coord_add_initial_noise_to_cnt_struct__(self, cnt_struct: CntDataStructure) -> CntDataStructure:
-        self._coord_noise = self.__coord_sample_initial_noise__()
-        cnt_struct.add(self._coord_noise)
+        const_noise_min: int = 1
+        const_noise_max: int = 15
+
+        if not isinstance(cnt_struct, CBloomFilter):
+            raise RuntimeError(f"deZent_gateway currently supports CBloomFilter only!")
+
+        self._coord_noise = []
+        for _ in range(cnt_struct.m):
+            noise: int = random.randint(const_noise_min, const_noise_max)
+            self._coord_noise.append(noise)
+
+        cnt_struct.secure_sum_add_noise(self._coord_noise)
         return cnt_struct
     
     def __coord_remove_initial_noise_from_cnt_struct__(self, cnt_struct: CntDataStructure) -> CntDataStructure:
-        cnt_struct.remove(self._coord_noise)
+        if not isinstance(cnt_struct, CBloomFilter):
+            raise RuntimeError(f"deZent_gateway currently supports CBloomFilter only!")
+        cnt_struct.secure_sum_remove_noise(self._coord_noise)
         return cnt_struct

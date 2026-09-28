@@ -1,10 +1,16 @@
 from __future__ import annotations
 from abc import abstractmethod
+import copy
 from typing import Any, TypeVar, Generic
 from deZent_demo.utils.config.config import *
 from PySide6.QtGui import Qt, QColor, QPen, QBrush, QFont
 from PySide6.QtWidgets import QLabel, QAbstractButton, QGraphicsView
 
+#define copy construction for copy.deepcopy
+copy._deepcopy_dispatch[QPen] = lambda x, memo: QPen(x)         # pyright: ignore[reportUnknownArgumentType, reportUnknownLambdaType, reportUnknownMemberType, reportAttributeAccessIssue]
+copy._deepcopy_dispatch[QBrush] = lambda x, memo: QBrush(x)     # pyright: ignore[reportUnknownArgumentType, reportUnknownLambdaType, reportUnknownMemberType, reportAttributeAccessIssue]
+copy._deepcopy_dispatch[QColor] = lambda x, memo: QColor(x)     # pyright: ignore[reportUnknownArgumentType, reportUnknownLambdaType, reportUnknownMemberType, reportAttributeAccessIssue]
+copy._deepcopy_dispatch[QFont] = lambda x, memo: QFont(x)       # pyright: ignore[reportUnknownArgumentType, reportUnknownLambdaType, reportUnknownMemberType, reportAttributeAccessIssue]
 
 @dataclass
 class Style(Config):
@@ -23,11 +29,10 @@ class Styled(Generic[StyleTypeT]):
         self.on_style_change(style)
 
     def get_style(self) -> StyleTypeT:
-        return self._style
+        return copy.deepcopy(self._style)
     
     def set_style(self, style: StyleTypeT):
-        if self._style == style:
-            return
+        # TODO: return if nothing changed, requires deep inspection equality
         self.on_style_change(style)
         self._style = style
 
@@ -78,7 +83,7 @@ class ButtonStyle(Style):
 
 @dataclass
 class GraphicsViewStyle(Style):
-    background_color: ColorStyle =  field(default_factory=lambda: ColorStyle(QColor(Qt.GlobalColor.white)))
+    background_color: ColorStyle = field(default_factory=lambda: ColorStyle(QColor(Qt.GlobalColor.white)))
 
     def apply(self, target: QGraphicsView) -> None:
         target.setBackgroundBrush(self.background_color.color)

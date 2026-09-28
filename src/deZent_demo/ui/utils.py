@@ -1,14 +1,16 @@
+from __future__ import annotations
 import math
 from typing import Any, TypeVar
 
 from deZent_demo.ui.style.style import *
 
 from PySide6.QtCore import (
+    Qt,
     QPoint, QPointF,
     QSizeF,
     QRectF,
-    Qt,
     QLineF,
+    Signal
 )
 from PySide6.QtGui import (
     QVector2D,
@@ -19,7 +21,10 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import (
     QGraphicsItem,
     QGraphicsLineItem,
+    QGraphicsRectItem,
+    QGraphicsSceneMouseEvent,
     QStyleOptionGraphicsItem,
+    QGraphicsObject,
     QWidget,
 )
 
@@ -27,7 +32,6 @@ class GraphicsContainerItem(QGraphicsItem):
 
     def __init__(
         self,
-        /,
         parent: QGraphicsItem | None = None,
         **kwargs: Any
     ) -> None:
@@ -49,6 +53,45 @@ class GraphicsContainerItem(QGraphicsItem):
     def set_center_pos(self, pos: QPointF) -> None:
         self.setPos(pos - self.center())
 
+class GraphicsInteractiveObject(QGraphicsObject):
+    clicked = Signal()
+    double_clicked = Signal()
+
+    def __init__(
+        self,
+        parent: QGraphicsItem | None = None,
+        **kwargs: Any
+    ) -> None:
+        super().__init__(
+            parent,
+            **kwargs
+        )
+
+    def paint(self,
+                  painter: QPainter,
+                  option: QStyleOptionGraphicsItem,
+                  /,
+                  widget: QWidget | None = None) -> None:
+            return
+    
+    def boundingRect(self) -> QRectF:
+        return self.childrenBoundingRect()
+
+    def center(self) -> QPointF:
+        return self.boundingRect().center()
+
+    def set_center_pos(self, pos: QPointF) -> None:
+        self.setPos(pos - self.center())
+
+    def mousePressEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+        self.clicked.emit()
+        event.accept()
+        return super().mousePressEvent(event)
+
+    def mouseDoubleClickEvent(self, event: QGraphicsSceneMouseEvent) -> None:
+        self.double_clicked.emit()
+        event.accept()
+        return super().mouseDoubleClickEvent(event)
 
 ScalarT = TypeVar("ScalarT", int, float)
 PointT = TypeVar("PointT", QPoint, QPointF)
@@ -232,3 +275,99 @@ class GraphicsArrow(Styled[GraphicsArrowStyle], GraphicsContainerItem):
             )
         )
         self.arrow_rline.setPen(style.line_style.pen)
+
+@dataclass
+class GraphicsCrossButtonStyle(Style):
+    background_style: BorderedStyle =  field(
+        default_factory=lambda: BorderedStyle(
+            QBrush(QColor(Qt.GlobalColor.lightGray)),
+            LineStyle(
+                QPen(
+                    QColor(Qt.GlobalColor.black),
+                    1,
+                    Qt.PenStyle.SolidLine,
+                    Qt.PenCapStyle.RoundCap,
+                    Qt.PenJoinStyle.RoundJoin,
+                )
+            )
+        )
+    )
+    cross_line_margin_relative: float = 0.03
+    cross_line_style: LineStyle = field(
+        default_factory=lambda: LineStyle(
+            QPen(
+                QColor(Qt.GlobalColor.black),
+                2,
+                Qt.PenStyle.SolidLine,
+                Qt.PenCapStyle.SquareCap,
+                Qt.PenJoinStyle.BevelJoin,
+            )
+        )
+    )
+
+class GraphicsCrossButton(Styled[GraphicsCrossButtonStyle], GraphicsInteractiveObject):
+
+    def __init__(
+        self,
+        size: QSizeF = QSizeF(1.0, 1.0),
+        style: GraphicsCrossButtonStyle = GraphicsCrossButtonStyle(),
+        parent: QGraphicsItem | None = None,
+        **kwargs: Any,
+    ) -> None:
+        self._size: QSizeF = size
+        self._background_rect: QGraphicsRectItem = QGraphicsRectItem()
+        self._cross_line_l: QGraphicsLineItem = QGraphicsLineItem()
+        self._cross_line_r: QGraphicsLineItem = QGraphicsLineItem()
+
+        super().__init__(
+            style=style,
+            parent=parent,
+            **kwargs
+        )
+
+        self._background_rect.setParentItem(self)
+        self._cross_line_l.setParentItem(self)
+        self._cross_line_r.setParentItem(self)
+
+    @override
+    def on_style_change(self, new_style: GraphicsCrossButtonStyle) -> None:
+        self.update_button(style=new_style)
+
+    def update_button(
+        self,
+        size: QSizeF | None = None,
+        style: GraphicsCrossButtonStyle | None = None,
+    ) -> None: 
+
+        size = size if size is not None else self._size
+        style = style if style is not None else self._style
+        
+        self._background_rect.setRect(
+            QRectF(
+                0.0, 0.0,
+                size.width(), size.height()
+            )
+        )
+        self._background_rect.setBrush(style.background_style.fill)
+        self._background_rect.setPen(style.background_style.border.pen)
+
+        margin: QSizeF = size * style.cross_line_margin_relative
+
+        self._cross_line_l.setLine(
+            QLineF(
+                margin.width(), margin.height(),
+                size.width() - margin.width(), size.height() - margin.height()
+            )
+        )
+        self._cross_line_l.setPen(style.cross_line_style.pen)
+
+        self._cross_line_r.setLine(
+            QLineF(
+                size.width() - margin.width(), margin.height(),
+                margin.width(), size.height() - margin.height()
+            )
+        )
+        self._cross_line_r.setPen(style.cross_line_style.pen)
+
+        self._size = size
+        # style is handled by Styled

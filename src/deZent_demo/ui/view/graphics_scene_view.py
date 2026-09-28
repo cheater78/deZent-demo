@@ -3,11 +3,9 @@ from typing import ClassVar
 
 from PySide6.QtCore import (
     Qt,
-    QRectF,
+    QPoint, QPointF,
     QSizeF,
-)
-from PySide6.QtGui import (
-    QShortcut
+    QRectF,
 )
 from PySide6.QtWidgets import (
     QGraphicsScene,
@@ -20,7 +18,7 @@ from deZent_demo.ui.utils import rect_expand_by_relative_margin
 class GraphicsSceneView(QGraphicsView):
     _default_scene_rect: ClassVar[QRectF] = QRectF(-1.0, -1.0, +1.0, +1.0) # default = NDC
 
-    relative_fit_scene_margin: ClassVar[QSizeF] = QSizeF(0.02, 0.02) # TODO: move to [...]Style? - has to support inheritance
+    relative_fit_scene_margin: ClassVar[QSizeF] = QSizeF(0.01, 0.01) # TODO: move to [...]Style? - has to support inheritance
 
     def __init__(
         self,
@@ -31,8 +29,6 @@ class GraphicsSceneView(QGraphicsView):
 
         self._scene: QGraphicsScene = scene if scene is not None else QGraphicsScene(parent=self)
         self.setScene(self._scene)
-
-        self._fit_scene_in_view_shortcut: QShortcut | None = None
 
     def fit_scene_in_view(self) -> None:
         """
@@ -47,11 +43,6 @@ class GraphicsSceneView(QGraphicsView):
             refit_rect,
             Qt.AspectRatioMode.KeepAspectRatio,
         )
-
-    def set_fit_scene_in_view_shortcut(self, shortcut: QShortcut | None) -> None:
-        self._fit_scene_in_view_shortcut = shortcut
-        if self._fit_scene_in_view_shortcut is not None:
-            self._fit_scene_in_view_shortcut.activated.connect(self.fit_scene_in_view)
 
     def _fit_scene_rect(self) -> QRectF:
         return rect_expand_by_relative_margin(
@@ -79,4 +70,17 @@ class GraphicsSceneView(QGraphicsView):
         """
         Return the viewport bounds in scene coordinates.
         """
-        return self.mapToScene(self.viewport().rect()).boundingRect()
+        return self.mapToScene(self.viewport().rect()).boundingRect() 
+
+    def move_scene_to_view(self, scene_pos: QPointF, view_pos: QPoint) -> None:
+        current: QPointF = self.mapToScene(view_pos)
+        offset: QPointF = scene_pos - current
+
+        current_center: QPointF = self.mapToScene(
+            QPoint(
+                self.viewport().width() // 2,
+                self.viewport().height() // 2
+            )
+        )
+
+        self.centerOn(current_center + offset)

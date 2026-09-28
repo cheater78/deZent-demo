@@ -1,6 +1,24 @@
 from enum import Enum
-from typing import Any, ClassVar, override
+from typing import Any, ClassVar, override, TypeAlias, TypeGuard, get_args, get_origin
 from collections.abc import Callable
+
+TypeSpec: TypeAlias = type[Any] | Any
+def type_matches(value: Any, expected: TypeSpec) -> TypeGuard[Any]:
+    origin = get_origin(expected)
+
+    if origin is None:
+        return type(value) is expected
+
+    if not isinstance(value, origin):
+        return False
+
+    args = get_args(expected)
+
+    if origin is list and len(args) == 1:
+        item_type = args[0]
+        return all(type_matches(item, item_type) for item in value)
+
+    return True
 
 class InstrumentEvent(Enum):
     pass
@@ -67,7 +85,7 @@ class Instrumentor():
         if len(callback_signature) != len(args):
             raise RuntimeError(f"Instrumentor callback function signature: {callback_signature} for Event: {event} did not match length of provided args: {args}!")
         for arg_i, (arg, cb_sig_arg_t) in enumerate(zip(args, callback_signature)):
-            if type(arg) != cb_sig_arg_t:
+            if not type_matches(arg, cb_sig_arg_t):
                 raise RuntimeError(f"Instrumentor callback function signature: {callback_signature} for Event: {event} did not of provided args: {args}!\n \
                     provided arg[{arg_i}] of type: {type(arg)} did not match expected type: {cb_sig_arg_t}!")
         
@@ -83,7 +101,7 @@ class Instrumentor():
 from PySide6.QtCore import Qt, QObject, Signal, QThread, Slot, QSemaphore
 
 class QtInstrumentorGate(QObject, InstrumentorGate):
-    gate_signal = Signal(InstrumentEvent)
+    gate_signal = Signal()
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)

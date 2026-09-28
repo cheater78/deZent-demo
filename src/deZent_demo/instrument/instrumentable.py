@@ -16,5 +16,8 @@ class Instrumentable(ABC):
     def set_instrumentor(self, instrumentor: Instrumentor) -> None:
         self.__instrumentor = instrumentor
 
+    def get_instrumentor(self) -> Instrumentor:
+        return self.__instrumentor
+
     def _instrument(self, event: InstrumentEvent, *args: Any) -> None:
         self.__instrumentor.call(event, *args)

@@ -52,6 +52,8 @@ class SimTimeEnv(AbstractTimeEnv):
                 e.set()
 
     def wait_until(self, time_point: datetime) -> bool:
+        if self._stop_event.is_set():
+            return False
         event = threading.Event()
 
         with self._lck_:

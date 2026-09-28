@@ -176,6 +176,8 @@ class NetworkGraphGatewayNode(NetworkGraphNode): # TODO: inheritance friendly St
 
         super().mouseDoubleClickEvent(event)
 
+    def next_gw_edge(self) -> NetworkGraphEdge:
+        return cast(NetworkGraph, self._graph).gw_get_next_gw_edge(self)
 
 @dataclass
 class NetworkGraphEdgeStyle(Style):
@@ -219,8 +221,7 @@ class NetworkGraphEdge(Styled[NetworkGraphEdgeStyle], GraphicsDirectedGraphEdge)
 
         self._visu.setParentItem(self)
         self._visu.setZValue(0)
-        
-
+    
     @override
     def on_style_change(self, new_style: NetworkGraphEdgeStyle) -> None:
         self._visu.set_style(new_style.edge_arrow_style)
@@ -300,3 +301,9 @@ class NetworkGraph(Styled[NetworkGraphStyle], GraphicsDirectedGraph):
 
     def create_edge(self, begin: NetworkGraphNode, end: NetworkGraphNode) -> NetworkGraphEdge:
         return NetworkGraphEdge(self, begin, end, parent=self)
+
+    def gw_get_next_gw_edge(self, gw: NetworkGraphGatewayNode) -> NetworkGraphEdge:
+        for edge in self._edges:
+            if edge.begin_node() == gw and isinstance(edge.end_node(), NetworkGraphGatewayNode):
+                return cast(NetworkGraphEdge, edge)
+        raise RuntimeError(f"NetworkGraph did not contain an edge starting from the requested GW node!")
