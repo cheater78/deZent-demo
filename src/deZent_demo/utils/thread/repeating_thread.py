@@ -11,7 +11,6 @@ class RepeatingWorkerThread(ABC):
         self.__start_event = threading.Event() # set when start is called
         self.__started_event = threading.Event() # set when the thread actually started
         self.__stop_event = threading.Event() # set when stop is called
-        self.__stopped_event = threading.Event() # set when the thread actually stopped
 
         self.__thread = threading.Thread(
             target=self.__run,
@@ -46,8 +45,6 @@ class RepeatingWorkerThread(ABC):
                 self._repeat()
         except BaseException as e:
             self.__exception = e
-        finally: 
-            self.__stopped_event.set()
 
     @abstractmethod
     def _repeat(self) -> None:
@@ -71,7 +68,6 @@ class RepeatingWorkerThread(ABC):
         return True
 
     def _wait_stopped(self) -> None:
-        self.__stopped_event.wait() # redundant
         self.__thread.join() # will always wait until Thread ended
 
     def __on_this_thread(self) -> bool:

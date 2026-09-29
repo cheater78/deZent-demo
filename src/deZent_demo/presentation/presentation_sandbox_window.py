@@ -70,6 +70,7 @@ class PresentationSandboxWindow(Styled[PresentationSandboxWindowStyle], SandboxW
             **kwargs,
         )
 
+        self.__init_window_size()
         self.__init_ui()
         self.__init_debug_hotkeys()
 
@@ -80,10 +81,21 @@ class PresentationSandboxWindow(Styled[PresentationSandboxWindowStyle], SandboxW
             QPointF(0.0, 0.0),
             QSizeF(300, 300)
         )
-        self._cbf_plot_widget.setVisible(False)
 
         self.__init_demo_logic()
-        self._network_graph_widget.fit_scene_in_view()
+    
+    def __init_window_size(self) -> None:
+        screen = self.screen()
+        geometry = screen.availableGeometry()
+
+        width = int(geometry.width() * 0.7)
+        height = int(geometry.height() * 0.7)
+
+        self.resize(width, height)
+        self.move(
+            geometry.x() + (geometry.width() - width) // 2,
+            geometry.y() + (geometry.height() - height) // 2,
+        )
 
     def __init_ui(self) -> None:
         self.setCentralWidget(self._main_widget)
@@ -135,6 +147,9 @@ class PresentationSandboxWindow(Styled[PresentationSandboxWindowStyle], SandboxW
             gw1_instrumentor_round_begin_gate.release()
 
         def gw1_on_ccc_round_begin(timestamp: datetime):
+            self._cbf_plot_widget.setVisible(False)
+            self._network_graph_widget.fit_scene_in_view()
+
             gw1_node.set_coordinator(True)
 
             self._control_overlay.set_content(
@@ -703,7 +718,7 @@ class PresentationSandboxWindow(Styled[PresentationSandboxWindowStyle], SandboxW
     def layout_overlay(
         self,
         size: QSize,
-        new_style: PresentationSandboxWindowStyle | None = None,
+        new_style: PresentationSandboxWindowStyle | None = None
     ) -> None:
         w = max(1, size.width())
         h = max(1, size.height())
@@ -788,5 +803,5 @@ class PresentationSandboxWindow(Styled[PresentationSandboxWindowStyle], SandboxW
     @override
     def sim_stop(self):
         for gw in self._dZ_gws.values():
-            gw.get_instrumentor().release_gates()
+            gw.get_instrumentor().shutdown_gates()
         super().sim_stop()

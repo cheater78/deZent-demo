@@ -25,7 +25,6 @@ class NetworkGraphWidget(Styled[NetworkGraphWidgetStyle], PanningGraphicsView):
         )
 
         self.scene().addItem(self._network_graph)
-        self.fit_scene_in_view()
 
     def graph(self) -> NetworkGraph:
         return self._network_graph

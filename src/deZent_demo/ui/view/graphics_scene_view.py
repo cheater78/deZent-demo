@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
 from deZent_demo.ui.utils import rect_expand_by_relative_margin
 
 class GraphicsSceneView(QGraphicsView):
-    _default_scene_rect: ClassVar[QRectF] = QRectF(-1.0, -1.0, +1.0, +1.0) # default = NDC
+    _default_scene_rect: ClassVar[QRectF] = QRectF(0, 0, 1280, 720)
 
     relative_fit_scene_margin: ClassVar[QSizeF] = QSizeF(0.01, 0.01) # TODO: move to [...]Style? - has to support inheritance
 

@@ -1,4 +1,4 @@
-from enum import Enum
+from enum import Enum, auto
 from typing import Any, ClassVar, override, TypeAlias, TypeGuard, get_args, get_origin
 from collections.abc import Callable
 
@@ -35,6 +35,9 @@ class InstrumentorGate():
     def wait(self) -> None:
         pass
 
+    def shutdown(self) -> None:
+        pass
+
 class Instrumentor():
     event_type: ClassVar[type[InstrumentEvent] | None] = None
     event_cb_signatures: ClassVar[dict[InstrumentEvent, list[type]]] = { }
@@ -44,9 +47,9 @@ class Instrumentor():
         self._instrument_callbacks: dict[InstrumentEvent, InstrumentEventCallback] = { }
         self._instrument_gates: dict[InstrumentEvent, InstrumentorGate] = { }
 
-    def release_gates(self) -> None:
+    def shutdown_gates(self) -> None:
         for gate in self._instrument_gates.values():
-            gate.release()
+            gate.shutdown()
 
     def set_instrument_callback(self, event: InstrumentEvent, callback: InstrumentEventCallback) -> None:
         self._instrument_callbacks[event] = callback
@@ -98,7 +101,21 @@ class Instrumentor():
             return
         return gate.wait()
 
-from PySide6.QtCore import Qt, QObject, Signal, QThread, Slot, QSemaphore
+from PySide6.QtCore import (
+    QObject,
+    QThread,
+    QMutex,
+    QMutexLocker,
+    QWaitCondition,
+    Qt,
+    Signal,
+    Slot,
+)
+
+class GateState(Enum):
+    CLOSED = auto()
+    RELEASED = auto()
+    SHUTDOWN = auto()
 
 class QtInstrumentorGate(QObject, InstrumentorGate):
     gate_signal = Signal()
@@ -106,7 +123,10 @@ class QtInstrumentorGate(QObject, InstrumentorGate):
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
 
-        self.gate: QSemaphore = QSemaphore(0)
+        self._mutex = QMutex()
+        self._condition = QWaitCondition()
+        self._state = GateState.CLOSED
+
         self.gate_signal.connect(
             self.release,
             Qt.ConnectionType.BlockingQueuedConnection,
@@ -115,11 +135,25 @@ class QtInstrumentorGate(QObject, InstrumentorGate):
     @override
     @Slot()
     def release(self) -> None:
-        self.gate.release()
+        with QMutexLocker(self._mutex):
+            if self._state is GateState.CLOSED:
+                self._state = GateState.RELEASED
+                self._condition.wakeOne()
 
     @override
     def wait(self) -> None:
-        self.gate.acquire()
+        with QMutexLocker(self._mutex):
+            while self._state is GateState.CLOSED:
+                self._condition.wait(self._mutex)
+
+            if self._state is GateState.RELEASED:
+                self._state = GateState.CLOSED
+
+    @override
+    def shutdown(self) -> None:
+        with QMutexLocker(self._mutex):
+            self._state = GateState.SHUTDOWN
+            self._condition.wakeAll()
 
 '''
     Instrumentor synchronization layer to run all instrumentor callbacks on Qt's main Thread

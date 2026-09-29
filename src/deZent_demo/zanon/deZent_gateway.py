@@ -175,7 +175,6 @@ class deZentGateway(Gateway, deZentNode):
             curr_round_time, cnt_struct, self.record_log, recs2pub, p_pub)
         
         published_records: PubLog = PubLog() # collect published records first, then send them all at once
-        allowed_keys: set[MeasurementKey] = set[MeasurementKey]()
         # key hashes of some of GW's records were found in cnt_struct
         for rec2pub in recs2pub:
             # take publication responsibility with probability p_pub
@@ -183,11 +182,8 @@ class deZentGateway(Gateway, deZentNode):
             should_publish: bool = sampled_p_pub < p_pub
             self._instrument(dZGWInstrumentEvent.GW_ON_PUBLICATION_ROUND_SHOULD_RECORD_BE_PUBLISHED,
                 curr_round_time, cnt_struct, self.record_log, recs2pub, p_pub, rec2pub, sampled_p_pub, should_publish)
-
-            if cnt_struct.check(rec2pub.key):
-                allowed_keys.add(rec2pub.key)
-
-            if should_publish and rec2pub.key in allowed_keys:
+            
+            if should_publish and cnt_struct.check(rec2pub.key):
 
                 # to publish: forward PubLogEntry to CE with value, timepoint, and sm_id for collection and further processing
                 published_records.add_record(rec2pub)
