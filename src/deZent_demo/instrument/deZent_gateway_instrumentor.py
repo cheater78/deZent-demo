@@ -60,8 +60,8 @@ class dZGWInstrumentor(GWInstrumentor):
         dZGWInstrumentEvent.CCC_ROUND_END: [datetime],
 
         dZGWInstrumentEvent.GW_ON_COLLECTION_ROUND: [datetime, CBloomFilter],
-        dZGWInstrumentEvent.GW_ON_COLLECTION_ROUND_SM_MEASUREMENTS_COLLECTED: [datetime, RecordLog],
-        dZGWInstrumentEvent.GW_ON_COLLECTION_ROUND_RECORDS_ADDED: [datetime, CBloomFilter],
+        dZGWInstrumentEvent.GW_ON_COLLECTION_ROUND_SM_MEASUREMENTS_COLLECTED: [datetime, CBloomFilter, RecordLog],
+        dZGWInstrumentEvent.GW_ON_COLLECTION_ROUND_RECORDS_ADDED: [datetime, CBloomFilter, RecordLog],
 
         dZGWInstrumentEvent.GW_ON_PUBLICATION_ROUND: [datetime, CBloomFilter, float],
         dZGWInstrumentEvent.GW_ON_PUBLICATION_ROUND_RECORDS_TO_PUBLISH: [datetime, CBloomFilter, RecordLog, PubLog, float],

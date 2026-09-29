@@ -111,17 +111,50 @@ class PresentationSandboxWindow(Styled[PresentationSandboxWindowStyle], SandboxW
 
         QShortcut(QKeySequence('R'), self).activated.connect(self._network_graph_widget.fit_scene_in_view)
 
-    def __init_demo_logic(self) -> None:
-        # NOTE: I'm truly sorry for this - didn't have time for proper a architecture
-        self.__init_demo_logic_gw1()
-        self.__init_demo_logic_gw2()
+        QShortcut(QKeySequence(Qt.Key.Key_Space), self).activated.connect(self._control_overlay.next_button().click)
 
-    def __init_demo_logic_gw1(self) -> None:
+################################################################################################################################
+# NOTE: turn back
+################################################################################################################################
+    
+    def __init_demo_logic(self) -> None:
+        # NOTE: I'm truly sorry for this - didn't have time for a proper architecture
+        self.__init_demo_logic_gw1_starts_collection_as_ccc()
+        self.__init_demo_logic_gw2_collects_sm_measurements()
+
+    def __init_demo_logic_gw1_starts_collection_as_ccc(self) -> None:
         # GW 1
         gw1_id: NetworkNodeID = 1
         gw1: deZentGateway = self._dZ_gws[gw1_id]
         gw1_node: NetworkGraphGatewayNode = cast(NetworkGraphGatewayNode, self._network_graph_gateways[gw1_id])
         gw1_instrumentor: dZGWInstrumentor = dZGWInstrumentor()
+
+        # Step 0: deZent round begins
+        gw1_instrumentor_round_begin_gate: QtInstrumentorGate = QtInstrumentorGate()
+        def gw1_on_ccc_round_begin_next():
+            gw1_instrumentor_round_begin_gate.release()
+
+        def gw1_on_ccc_round_begin(timestamp: datetime):
+            gw1_node.set_coordinator(True)
+
+            self._control_overlay.set_content(
+                ControlOverlayContent(
+                    "deZent round begins",
+                    "A coordinator is picked, which starts the round.",
+                    "Create CBF and add inital noise",
+                    "Next"
+                )
+            )
+            self._control_overlay.next_button().clicked.connect(gw1_on_ccc_round_begin_next)
+        
+        gw1_instrumentor.set_instrument_callback(
+            dZGWInstrumentEvent.CCC_ROUND_BEGIN,
+            gw1_on_ccc_round_begin
+        )
+        gw1_instrumentor.set_instrument_gate(
+            dZGWInstrumentEvent.CCC_ROUND_BEGIN,
+            gw1_instrumentor_round_begin_gate
+        )
 
         # Step 1: cbf noise added
         gw1_instrumentor_cbf_noise_added_gate: QtInstrumentorGate = QtInstrumentorGate()
@@ -131,7 +164,6 @@ class PresentationSandboxWindow(Styled[PresentationSandboxWindowStyle], SandboxW
             gw1_instrumentor_cbf_noise_added_gate.release()
 
         def gw1_on_cbf_noise_added(timestamp: datetime, cbf: CBloomFilter, noise: list[int]):
-            self._cbf_plot_widget.plot().update_cbf(cbf)
             gw1_node.set_coordinator(True)
             gw1_node.set_interaction(True)
 
@@ -148,6 +180,8 @@ class PresentationSandboxWindow(Styled[PresentationSandboxWindowStyle], SandboxW
                 )
             )
             self._control_overlay.next_button().clicked.connect(gw1_on_cbf_noise_added_next)
+
+            node_interaction()
         
         gw1_instrumentor.set_instrument_callback(
             dZGWInstrumentEvent.CCC_COLLECTION_ROUND_BEGIN_CBF_NOISE_ADDED,
@@ -176,8 +210,11 @@ class PresentationSandboxWindow(Styled[PresentationSandboxWindowStyle], SandboxW
             self._control_overlay.next_button().clicked.connect(gw1_on_collection_message_next)
             next_edge_style = gw1_node.next_gw_edge().get_style()
             next_edge_style.edge_arrow_style.angle = 45
-            next_edge_style.edge_arrow_style.line_style.pen.setColor(QColor(Qt.GlobalColor.red))
+            next_edge_style.edge_arrow_style.line_style.pen.setColor(QColor(Qt.GlobalColor.blue))
             gw1_node.next_gw_edge().set_style(next_edge_style)
+
+            self._cbf_plot_widget.hide() # hide cbf
+            self._network_graph_widget.fit_scene_in_view() # and re-center view
 
         gw1_instrumentor.set_instrument_callback(
             dZGWInstrumentEvent.GW_SEND_COLLECTION_TO_NEXT,
@@ -188,51 +225,442 @@ class PresentationSandboxWindow(Styled[PresentationSandboxWindowStyle], SandboxW
             gw1_instrumentor_collection_message_gate
         )
 
+        # Step 4: collection round is completed, cbf arrives at CCC
+        gw1_instrumentor_ccc_collection_round_end_gate: QtInstrumentorGate = QtInstrumentorGate()
+        
+        def gw1_on_ccc_collection_round_end(timestamp: datetime, cbf: CBloomFilter):
+            gw1_node.set_interaction(False)
+            gw1_node.set_interaction_cb(None)
+
+            self._control_overlay.set_content(
+                ControlOverlayContent(
+                    "Collection round completed",
+                    "CBF is transferred along the ring and all Gateways add their received measurements to the CBF until it arrives back at the CCC.",
+                    "CBF arrives at CCC",
+                    "Next"
+                )
+            )
+
+            for i in range(self._sim_config.n_gws - 1): 
+                gw_id: NetworkNodeID = i + 2
+                gwi_node: NetworkGraphGatewayNode = cast(NetworkGraphGatewayNode, self._network_graph_gateways[gw_id])
+
+                gwi_node.set_interaction(False)
+
+                next_edge_style = gwi_node.next_gw_edge().get_style()
+                next_edge_style.edge_arrow_style.angle = 45
+                next_edge_style.edge_arrow_style.line_style.pen.setColor(QColor(Qt.GlobalColor.blue))
+                gwi_node.next_gw_edge().set_style(next_edge_style)
+
+            self._cbf_plot_widget.hide() # hide cbf
+            self._network_graph_widget.fit_scene_in_view() # and re-center view
+
+            def gw1_on_ccc_collection_round_end_next():
+                # clean up
+                for i in range(self._sim_config.n_gws - 1): 
+                    gw_id: NetworkNodeID = i + 2
+                    gwi_node: NetworkGraphGatewayNode = cast(NetworkGraphGatewayNode, self._network_graph_gateways[gw_id])
+                    gwi_node.set_interaction(False)
+                    gwi_node.next_gw_edge().set_style(NetworkGraphEdgeStyle())
+
+                #Step 5.a: CCC removes the inital noise from the CBF
+                def gw1_on_ccc_remove_initial_noise_next():
+                    gw1_instrumentor_ccc_collection_round_end_gate.release()
+
+                gw1_node.set_interaction(True)
+                def node_interaction_pre_remove_noise():
+                    self.show_cbf_of(1, cbf)
+                gw1_node.set_interaction_cb(node_interaction_pre_remove_noise)
+
+                self._control_overlay.set_content(
+                    ControlOverlayContent(
+                        "CCC receives the CBF with initial noise",
+                        "",
+                        "Remove initial noise",
+                        "Next"
+                    )
+                )
+                self._control_overlay.next_button().clicked.connect(gw1_on_ccc_remove_initial_noise_next)
+
+                node_interaction_pre_remove_noise()
+
+            self._control_overlay.next_button().clicked.connect(gw1_on_ccc_collection_round_end_next)
+        
+        gw1_instrumentor.set_instrument_callback(
+            dZGWInstrumentEvent.CCC_COLLECTION_ROUND_END,
+            gw1_on_ccc_collection_round_end
+        )
+        gw1_instrumentor.set_instrument_gate(
+            dZGWInstrumentEvent.CCC_COLLECTION_ROUND_END,
+            gw1_instrumentor_ccc_collection_round_end_gate
+        )
+
+        # Step 5.b: CCC removes the inital noise from the CBF - done
+        # Step 6.a pre ensure Z
+        gw1_instrumentor_cbf_noise_removed_gate: QtInstrumentorGate = QtInstrumentorGate()
+
+        def gw1_on_ccc_cbf_noise_removed(timestamp: datetime, cbf: CBloomFilter, noise: list[int]):
+            self._control_overlay.set_content(
+                ControlOverlayContent(
+                    "CCC removed the inital noise from CBF",
+                    f"Now the CBF contains all measurements without initial noise. " \
+                    f"Next all values occuring less than z times are removed.",
+                    f"Anonymize values",
+                    "Next"
+                )
+            )
+
+            gw1_node.set_interaction(True)
+            def node_interaction_post_remove_noise():
+                self.show_cbf_of(1, cbf)
+                self._cbf_plot_widget.plot().set_ensure_z_hline(self._deZent_config.z)
+            gw1_node.set_interaction_cb(node_interaction_post_remove_noise)
+
+            self._control_overlay.next_button().clicked.connect(gw1_instrumentor_cbf_noise_removed_gate.release)
+
+            node_interaction_post_remove_noise()
+
+        gw1_instrumentor.set_instrument_callback(
+            dZGWInstrumentEvent.CCC_COLLECTION_ROUND_END_CBF_NOISE_REMOVED,
+            gw1_on_ccc_cbf_noise_removed
+        )
+        gw1_instrumentor.set_instrument_gate(
+            dZGWInstrumentEvent.CCC_COLLECTION_ROUND_END_CBF_NOISE_REMOVED,
+            gw1_instrumentor_cbf_noise_removed_gate
+        )
+
+        # Step 6.b: ensured min Z
+        gw1_instrumentor_ensured_min_z_gate: QtInstrumentorGate = QtInstrumentorGate()
+
+        def gw1_on_ensured_min_z(timestamp: datetime, cbf: CBloomFilter, z: int):
+            self._control_overlay.set_content(
+                ControlOverlayContent(
+                    "Anonymized values",
+                    f"The CCC ensured that only values that occurred at least z times are kept for publication by reducing counts by z-1." \
+                    f"All remaining values occuring in the CBF can be published.",
+                    f"Start Publication",
+                    "Next"
+                )
+            )
+            self._control_overlay.next_button().clicked.connect(gw1_instrumentor_ensured_min_z_gate.release)
+
+            gw1_node.set_interaction(True)
+            def node_interaction_post_ensure_z():
+                self.show_cbf_of(1, cbf)
+                self._cbf_plot_widget.plot().set_ensure_z_hline(None)
+            gw1_node.set_interaction_cb(node_interaction_post_ensure_z)
+
+            node_interaction_post_ensure_z()
+
+        gw1_instrumentor.set_instrument_callback(
+            dZGWInstrumentEvent.CCC_COLLECTION_ROUND_END_CBF_Z_ENSURED,
+            gw1_on_ensured_min_z
+        )
+        gw1_instrumentor.set_instrument_gate(
+            dZGWInstrumentEvent.CCC_COLLECTION_ROUND_END_CBF_Z_ENSURED,
+            gw1_instrumentor_ensured_min_z_gate
+        )
+
+        # Step 7: Start publication round
+        gw1_instrumentor_start_pub_gate: QtInstrumentorGate = QtInstrumentorGate()
+
+        def gw1_on_start_pub_next() -> None:
+            gw1_node.next_gw_edge().set_style(NetworkGraphEdgeStyle())
+            gw1_node.set_interaction(False)
+            gw1_instrumentor_start_pub_gate.release()
+        
+        def gw1_on_start_pub(timestamp: datetime, cbf: CBloomFilter, p_pub: float):
+            self._control_overlay.set_content(
+                ControlOverlayContent(
+                    f"CCC starts publication",
+                    f"CCC starts the publication round by sending the noiseless anonymized CBF to the next GW.",
+                    f"Publication at GW 2",
+                    "Next"
+                )
+            )
+            self._control_overlay.next_button().clicked.connect(gw1_on_start_pub_next)
+
+            gw1_node.set_interaction(False)
+            next_edge_style = gw1_node.next_gw_edge().get_style()
+            next_edge_style.edge_arrow_style.angle = 45
+            next_edge_style.edge_arrow_style.line_style.pen.setColor(QColor(Qt.GlobalColor.blue))
+            gw1_node.next_gw_edge().set_style(next_edge_style)
+
+            self._network_graph_widget.fit_scene_in_view()
+
+        gw1_instrumentor.set_instrument_callback(
+            dZGWInstrumentEvent.CCC_PUBLICATION_ROUND_BEGIN,
+            gw1_on_start_pub
+        )
+        gw1_instrumentor.set_instrument_gate(
+            dZGWInstrumentEvent.CCC_PUBLICATION_ROUND_BEGIN,
+            gw1_instrumentor_start_pub_gate
+        )
+
+        # Step 9: Complete Publication round
+        gw1_instrumentor_complete_publication_gate: QtInstrumentorGate = QtInstrumentorGate()
+        
+        def gw1_on_complete_publication_next() -> None:
+            for i in range(self._sim_config.n_gws - 1): 
+                gw_id: NetworkNodeID = i + 2
+                gwi_node: NetworkGraphGatewayNode = cast(NetworkGraphGatewayNode, self._network_graph_gateways[gw_id])
+
+                gwi_node.set_interaction(False)
+                gwi_node.next_gw_edge().set_style(NetworkGraphEdgeStyle())
+                next_node: NetworkGraphGatewayNode = cast(NetworkGraphGatewayNode, gwi_node.next_gw_edge().end_node())
+                next_node.ce_edge().set_style(NetworkGraphEdgeStyle())
+
+            gw1_node.set_interaction(False)
+            gw1_instrumentor_complete_publication_gate.release()
+        
+        def gw1_on_complete_publication(
+            timestamp: datetime,
+            cbf: CBloomFilter,
+            p_pub: float,
+            publication_fully_finished: bool,
+        ) -> None:
+            self._control_overlay.set_content(
+                ControlOverlayContent(
+                    f"Publication round completed",
+                    f"All GWs veryfied their publications using the CBF, which now arrives back at the CCC.",
+                    f"End round",
+                    "Next"
+                )
+            )
+            self._control_overlay.next_button().clicked.connect(gw1_on_complete_publication_next)
+
+            gw1_node.set_interaction(False)
+            for i in range(self._sim_config.n_gws - 1): 
+                gw_id: NetworkNodeID = i + 2
+                gwi_node: NetworkGraphGatewayNode = cast(NetworkGraphGatewayNode, self._network_graph_gateways[gw_id])
+
+                gwi_node.set_interaction(False)
+
+                next_edge_style = gwi_node.next_gw_edge().get_style()
+                next_edge_style.edge_arrow_style.angle = 45
+                next_edge_style.edge_arrow_style.line_style.pen.setColor(QColor(Qt.GlobalColor.blue))
+                gwi_node.next_gw_edge().set_style(next_edge_style)
+
+                next_node: NetworkGraphGatewayNode = cast(NetworkGraphGatewayNode, gwi_node.next_gw_edge().end_node())
+                ce_edge_style = next_node.ce_edge().get_style()
+                ce_edge_style.edge_arrow_style.angle = 45
+                ce_edge_style.edge_arrow_style.line_style.pen.setColor(QColor(Qt.GlobalColor.blue))
+                next_node.ce_edge().set_style(ce_edge_style)
+
+            self._network_graph_widget.fit_scene_in_view()
+
+        gw1_instrumentor.set_instrument_callback(
+            dZGWInstrumentEvent.CCC_PUBLICATION_ROUND_END,
+            gw1_on_complete_publication
+        )
+        gw1_instrumentor.set_instrument_gate(
+            dZGWInstrumentEvent.CCC_PUBLICATION_ROUND_END,
+            gw1_instrumentor_complete_publication_gate
+        )
+
+        # Step 10: Round end
+        gw1_instrumentor_round_end_gate: QtInstrumentorGate = QtInstrumentorGate()
+        
+        def gw1_on_round_end_next() -> None:
+            gw1_instrumentor_complete_publication_gate.release()
+            self.close() # TODO: allow more rounds
+        
+        def gw1_on_round_end(
+            timestamp: datetime,
+        ) -> None:
+            self._control_overlay.set_content(
+                ControlOverlayContent(
+                    f"deZent Round end",
+                    f"Collection and publication are completed, next round starts with the upcoming measurement interval.",
+                    f"Close demonstrator",
+                    "Next"
+                )
+            )
+            self._control_overlay.next_button().clicked.connect(gw1_on_round_end_next)
+
+            gw1_node.set_interaction(False)
+            gw1_node.set_coordinator(False) # NOTE: technically not yet
+            self._network_graph_widget.fit_scene_in_view()
+
+        gw1_instrumentor.set_instrument_callback(
+            dZGWInstrumentEvent.CCC_ROUND_END,
+            gw1_on_round_end
+        )
+        gw1_instrumentor.set_instrument_gate(
+            dZGWInstrumentEvent.CCC_ROUND_END,
+            gw1_instrumentor_round_end_gate
+        )
+
         gw1.set_instrumentor(gw1_instrumentor)
 
-    def __init_demo_logic_gw2(self) -> None:
+    def __init_demo_logic_gw2_collects_sm_measurements(self) -> None:
         # GW 2
         gw2_id: NetworkNodeID = 2
         gw2: deZentGateway = self._dZ_gws[gw2_id]
         gw2_node: NetworkGraphGatewayNode = cast(NetworkGraphGatewayNode, self._network_graph_gateways[gw2_id])
         gw2_instrumentor: dZGWInstrumentor = dZGWInstrumentor()
 
-        # Step 3: GW collection round
+        # Step 3: GW2 collects measurements, shows adding one 
         gw2_on_collection_instrumentor_gate: QtInstrumentorGate = QtInstrumentorGate()
         def gw2_on_collection_next():
-            
+            self._cbf_plot_widget.hide()
             gw2_on_collection_instrumentor_gate.release()
 
-        def gw2_on_collection(timestamp: datetime, cbf: CBloomFilter):
-            self._cbf_plot_widget.plot().update_cbf(cbf)
+        def gw2_on_collection(timestamp: datetime, cbf: CBloomFilter, record_log: RecordLog):
+            # cbf arrived at gw2 - nothing added yet
+            if not record_log:
+                raise RuntimeError(f"record_log was empty")
+            
+            representative_log_entry: tuple[MeasurementKey, RecordLogDictEntry] = record_log.items()[0]
+            representative_m_key: MeasurementKey = representative_log_entry[0]
+
             gw2_node.set_interaction(True)
 
             def node_interaction():
-                self.show_cbf_of(2, cbf)
+                self.show_cbf_of(2, cbf, representative_m_key)
             gw2_node.set_interaction_cb(node_interaction)
+
+            def gw2_on_collection_add_representative_measurement() -> None:
+                cbf.add(representative_m_key) # simulate adding the demo key, since all measurements are batched in the real impl
+                
+                gw2_node.set_interaction(True)
+                
+                def node_interaction_key_counted():
+                    self.show_cbf_of(2, cbf, representative_m_key)
+                gw2_node.set_interaction_cb(node_interaction_key_counted)
+
+                self._control_overlay.set_content(
+                    ControlOverlayContent(
+                        f"GW {gw2_id} adds a measurement to the CBF",
+                        f"GW {gw2_id} uses the CBF's {cbf.k} hash functions to determine the indices at which the measurement with key {representative_m_key} should be added. The Measurement increases the counter of these indices by 1.",
+                        "Complete Collection round",
+                        "Next"
+                    )
+                )
+                self._control_overlay.next_button().clicked.connect(gw2_on_collection_next)
+
+                node_interaction_key_counted()
 
             self._control_overlay.set_content(
                 ControlOverlayContent(
                     f"GW {gw2_id} starts collection",
-                    f"GW {gw2_id} receives the CBF and starts collecting SM measurements.",
-                    "Begin Collection Round",
+                    f"GW {gw2_id} receives the CBF, starts collecting SM measurements, and prepares to add the Measurements the the CBF.",
+                    f"Add measurement with Key {representative_m_key} to CBF",
                     "Next"
                 )
             )
-            self._control_overlay.next_button().clicked.connect(gw2_on_collection_next)
+            self._control_overlay.next_button().clicked.connect(gw2_on_collection_add_representative_measurement)
 
             node_interaction() # open cbf view automatically
         
         gw2_instrumentor.set_instrument_callback(
-            dZGWInstrumentEvent.GW_ON_COLLECTION_ROUND,
+            dZGWInstrumentEvent.GW_ON_COLLECTION_ROUND_SM_MEASUREMENTS_COLLECTED,
             gw2_on_collection
         )
         gw2_instrumentor.set_instrument_gate(
-            dZGWInstrumentEvent.GW_ON_COLLECTION_ROUND,
+            dZGWInstrumentEvent.GW_ON_COLLECTION_ROUND_SM_MEASUREMENTS_COLLECTED,
             gw2_on_collection_instrumentor_gate
         )
 
+        # Step 8.a: Publication - failing value
+        gw2_on_publication_gate: QtInstrumentorGate = QtInstrumentorGate()
+
+        def gw2_on_publication(
+            curr_round_time: datetime,
+            cbf: CBloomFilter,
+            record_log: RecordLog, # of the gw
+            recs2pub: PubLog, # not yet published
+            p_pub: float
+        ) -> None:
+            failing_key: MeasurementKey = 0x0C780000 # big number, which isn't in the data
+            failing_key_abort: int = 0xFFFF
+            while cbf.check(failing_key):
+                failing_key = random.randint(0, 0xFFFFFFFF)
+                if failing_key_abort < 0:
+                    raise RuntimeError(f"failed to find failing CBF Key") # hopes and prayers that no one will see this
+                failing_key_abort -= 1
+
+            gw2_node.set_interaction(True)
+            def node_interaction_failing_pub_key():
+                self.show_cbf_of(2, cbf, failing_key)
+            gw2_node.set_interaction_cb(node_interaction_failing_pub_key)
+
+            self._control_overlay.set_content(
+                ControlOverlayContent(
+                    f"GW {gw2_id} doesnt publish",
+                    f"GW {gw2_id} prevents publication of key {failing_key}, because it does not appear in the CBF. A key absent from the CBF means it wasn't collected atleast z-1 times.",
+                    f"Publish another value",
+                    "Next"
+                )
+            )
+
+            # mark "non conductive" - "gw prevents pub"
+            ce_edge_style = gw2_node.ce_edge().get_style()
+            ce_edge_style.edge_arrow_style.angle = 0 # no arrow wings
+            ce_edge_style.edge_arrow_style.line_style.pen.setColor(QColor(Qt.GlobalColor.darkRed))
+            gw2_node.ce_edge().set_style(ce_edge_style)
+
+            # Step 8.b: Publication - succeeding value
+            def gw2_on_publication_next():
+                # find successful key
+                successful_key: MeasurementKey = -1
+                for pub_entry in recs2pub:
+                    m_key: MeasurementKey = pub_entry.key
+                    if cbf.check(m_key):
+                        successful_key = m_key
+                        break
+                
+                if successful_key < 0:
+                    # no key to publish found -> rig the game
+                    rigged_key: MeasurementKey = 0xde2e147 # any key that will be added
+                    cbf.add(rigged_key) # adding once is enough, z ensured alr
+                    successful_key = rigged_key
+
+                gw2_node.set_interaction(True)
+                def node_interaction_successful_pub_key():
+                    self.show_cbf_of(2, cbf, successful_key)
+                gw2_node.set_interaction_cb(node_interaction_successful_pub_key)
+
+                self._control_overlay.set_content(
+                    ControlOverlayContent(
+                        f"GW {gw2_id} can publish",
+                        f"GW {gw2_id} finds key {successful_key} in the CBF meaning it was collected atleast z times allowing for publication.",
+                        f"Complete publication round",
+                        "Next"
+                    )
+                )
+
+                ce_edge_style = gw2_node.ce_edge().get_style()
+                ce_edge_style.edge_arrow_style.angle = 45
+                ce_edge_style.edge_arrow_style.line_style.pen.setColor(QColor(Qt.GlobalColor.blue))
+                gw2_node.ce_edge().set_style(ce_edge_style)
+
+                def gw2_on_publication_done():
+                    gw2_node.ce_edge().set_style(NetworkGraphEdgeStyle())
+                    gw2_on_publication_gate.release()
+
+                self._control_overlay.next_button().clicked.connect(gw2_on_publication_done)
+
+                node_interaction_successful_pub_key()
+
+            self._control_overlay.next_button().clicked.connect(gw2_on_publication_next)
+
+            node_interaction_failing_pub_key()
+
+        gw2_instrumentor.set_instrument_callback(
+            dZGWInstrumentEvent.GW_ON_PUBLICATION_ROUND_RECORDS_TO_PUBLISH,
+            gw2_on_publication
+        )
+        gw2_instrumentor.set_instrument_gate(
+            dZGWInstrumentEvent.GW_ON_PUBLICATION_ROUND_RECORDS_TO_PUBLISH,
+            gw2_on_publication_gate
+        )
+
         gw2.set_instrumentor(gw2_instrumentor)
+
+################################################################################################################################
+# NOTE: rest easy, you got through
+################################################################################################################################
 
     def show_cbf_of(self, gw_id: NetworkNodeID, cbf: CBloomFilter, value: MeasurementValue | None = None) -> None:
         self._cbf_plot_widget.plot().update_cbf(

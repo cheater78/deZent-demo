@@ -102,6 +102,9 @@ class RecordLog():
         debug_str += "}"
         return debug_str
 
+    def items(self) -> list[tuple[MeasurementKey, RecordLogDictEntry]]:
+        return list(self.log.items())
+
     '''
         numerical values are mapped to key values, basically value bins are used for measurement values
     '''

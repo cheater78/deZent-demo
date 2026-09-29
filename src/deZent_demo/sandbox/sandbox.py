@@ -14,7 +14,7 @@ class SimConfig(Config):
     start_time: datetime = datetime.fromisoformat("2026-01-01")
     measurement_interval: timedelta = timedelta(minutes=15)
     n_gws: int = 5
-    n_sms: int = 3
+    n_sms: int = 10
 
 class Sandbox:
     

@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 
 from deZent_demo.ami.gateway import Gateway
 from deZent_demo.ami.smart_meter_profile_distribution import SmartMeterProfileDistributionType
-from deZent_demo.ami.measurement_log import RecordLog, PubLog
+from deZent_demo.ami.measurement_log import *
 from deZent_demo.ami.gateway_profile import GatewayProfileType
 from deZent_demo.network import *
 from deZent_demo.utils.config.config import *
@@ -16,6 +16,7 @@ from deZent_demo.instrument.deZent_gateway_instrumentor import *
 class deZentConfig(Config):
     z: int = 4
     dt: timedelta = timedelta(minutes=121)
+    probabilistic_publication: int = 0 # no. of rounds to perform probabilistic publication (0 = publish immediately, 1, TODO: n > 1)
     # TODO: measurement bucket granularity
 
 class deZentGateway(Gateway, deZentNode):
@@ -101,7 +102,7 @@ class deZentGateway(Gateway, deZentNode):
             curr_round_time, cnt_struct, self._config.z)
 
         # start publication round with random 0.0 <= p_pub < 1.0
-        p_pub: float = random.random()
+        p_pub: float = random.random() if self._config.probabilistic_publication > 0 else 1.0
         self.on_coord_publication_round_begin(cnt_struct, p_pub, curr_round_time)
 
     '''
@@ -145,11 +146,11 @@ class deZentGateway(Gateway, deZentNode):
         # get measurement from smart meters connected to gw
         self.collect_curr_measurement_from_sms(curr_round_time)
         self._instrument(dZGWInstrumentEvent.GW_ON_COLLECTION_ROUND_SM_MEASUREMENTS_COLLECTED,
-            curr_round_time, self.record_log)
+            curr_round_time, cnt_struct, self.record_log)
 
         cnt_struct.add_records(self.record_log)
         self._instrument(dZGWInstrumentEvent.GW_ON_COLLECTION_ROUND_RECORDS_ADDED,
-            curr_round_time, cnt_struct)
+            curr_round_time, cnt_struct, self.record_log)
 
         if self._coord: # collection round returned to the CCC
             self.on_coord_collection_round_end(cnt_struct, curr_round_time)
@@ -174,6 +175,7 @@ class deZentGateway(Gateway, deZentNode):
             curr_round_time, cnt_struct, self.record_log, recs2pub, p_pub)
         
         published_records: PubLog = PubLog() # collect published records first, then send them all at once
+        allowed_keys: set[MeasurementKey] = set[MeasurementKey]()
         # key hashes of some of GW's records were found in cnt_struct
         for rec2pub in recs2pub:
             # take publication responsibility with probability p_pub
@@ -182,7 +184,10 @@ class deZentGateway(Gateway, deZentNode):
             self._instrument(dZGWInstrumentEvent.GW_ON_PUBLICATION_ROUND_SHOULD_RECORD_BE_PUBLISHED,
                 curr_round_time, cnt_struct, self.record_log, recs2pub, p_pub, rec2pub, sampled_p_pub, should_publish)
 
-            if should_publish and cnt_struct.check(rec2pub.key):
+            if cnt_struct.check(rec2pub.key):
+                allowed_keys.add(rec2pub.key)
+
+            if should_publish and rec2pub.key in allowed_keys:
 
                 # to publish: forward PubLogEntry to CE with value, timepoint, and sm_id for collection and further processing
                 published_records.add_record(rec2pub)

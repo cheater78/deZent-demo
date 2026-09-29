@@ -154,7 +154,7 @@ class CBFPlot(Styled[CBFPlotStyle], QGraphicsWidget):
         self.focus_arrow_size: float = self.y_scale * self.focus_arrow_scale
         self.focus_arrow_width_scale: float = 0.1 # TODO
         self.focus_arrow_width: float = self.focus_arrow_width_scale * self.x_scale
-        self.focus_arrow_margin_scale: float = 0.03 * self.y_max # TODO
+        self.focus_arrow_margin_scale: float = 0.075 * self.y_max # TODO
         self.focus_arrow_margin: float = self.y_scale * self.focus_arrow_margin_scale
         
         self.focus_arrow_color: QColor = QColor(Qt.GlobalColor.red)
@@ -213,7 +213,7 @@ class CBFPlot(Styled[CBFPlotStyle], QGraphicsWidget):
         self.xaxis_marker_labels: dict[int, QGraphicsSimpleTextItem] = {}
         self.xaxis_size: float = 0.0
 
-        # focus average
+        # focus MINIMUM!
         self.focus_avg_line: QGraphicsLineItem = QGraphicsLineItem(parent=self)
         self.focus_avg_line_label: QGraphicsSimpleTextItem = QGraphicsSimpleTextItem(parent=self)
         self.focus_avg_line_color: QColor = QColor(Qt.GlobalColor.red)
@@ -223,6 +223,17 @@ class CBFPlot(Styled[CBFPlotStyle], QGraphicsWidget):
         self.focus_avg_line_label_color: QColor = QColor(Qt.GlobalColor.red)
         self.focus_avg_line_label_brush: QBrush = QBrush(self.focus_avg_line_label_color)
         self.focus_avg_line_label_spacing: float = 1 # TODO
+
+        # Z hbar
+        self.z_hline: QGraphicsLineItem = QGraphicsLineItem(parent=self)
+        self.z_hline_pen: QPen = QPen(
+            QColor(Qt.GlobalColor.red),
+            1,
+            Qt.PenStyle.SolidLine,
+            Qt.PenCapStyle.RoundCap,
+            Qt.PenJoinStyle.RoundJoin
+        )
+        self.z_hline_label: QGraphicsSimpleTextItem = QGraphicsSimpleTextItem(parent=self)
 
         self.__cluster_focus_sections()
 
@@ -310,7 +321,7 @@ class CBFPlot(Styled[CBFPlotStyle], QGraphicsWidget):
         self.__set_xaxis()
         self.__set_yaxis(max(1, math.floor((self.y_max - self.y_min) / 10)))
 
-        self.__set_focus_avg()
+        self.__set_focus_value_bar()
 
     def __yaxis_pos(self, value: int) -> float:
         assert value >= self.y_min
@@ -444,7 +455,9 @@ class CBFPlot(Styled[CBFPlotStyle], QGraphicsWidget):
 
         return (xpos - x_pos)
 
-    def __set_xaxis(self, marker_spacing: int = 50) -> None:
+    def __set_xaxis(self, marker_count: int = 12) -> None:
+        marker_spacing: int = (self.x_max - self.x_min) // marker_count
+
         self.xaxis_lines = []
         self.xaxis_markers = {}
         self.xaxis_marker_labels = {}
@@ -466,8 +479,10 @@ class CBFPlot(Styled[CBFPlotStyle], QGraphicsWidget):
         x_pos += segment0_xsize
 
         if not self.focus:
-            self.__set_xaxis_marker(self.x_min)
-            self.__set_xaxis_marker(self.x_max)
+            if abs(self.x_min % marker_spacing) < (2 * (marker_spacing // 3)):
+                self.__set_xaxis_marker(self.x_min)
+            if abs(self.x_max % marker_spacing) > (marker_spacing // 3):
+                self.__set_xaxis_marker(self.x_max)
             begin_marker_value: int = self.x_min + (marker_spacing - (self.x_min % marker_spacing))
             for i in range((self.x_max - self.x_min) // marker_spacing):
                 marker_value: int = begin_marker_value * (i + 1)
@@ -584,7 +599,7 @@ class CBFPlot(Styled[CBFPlotStyle], QGraphicsWidget):
         arrow.set_style(self._style.focus_arrow_style)
         self.focus_arrows[argument] = arrow
 
-    def __set_focus_avg(self) -> None:
+    def __set_focus_value_bar(self) -> None:
         if not self.focus or not self.cbf:
             return
         value: int = self.y_max + 1
@@ -594,7 +609,7 @@ class CBFPlot(Styled[CBFPlotStyle], QGraphicsWidget):
             if bucket_v < value:
                 value = bucket_v
                 arg = f
-
+        # NOTE: its a min, NOT avg!
 
         # lower_focus_neighbor: int = max(self.x_min, min(self.focus) - self.focus_neighbor_extent) # TODO obsolete?
         upper_focus_neighbor: int = min(self.x_max, max(self.focus) + self.focus_neighbor_extent)
@@ -618,11 +633,48 @@ class CBFPlot(Styled[CBFPlotStyle], QGraphicsWidget):
         self.focus_avg_line_label.setFont(self._style.focus_avg_line_label_style.font)
 
         text_aabb: QRectF = self.focus_avg_line_label.boundingRect()
-        self.focus_avg_line_label.setPos(
-            self.__xaxis_pos(arg) - (text_aabb.width() / 2),
-            self.__yaxis_pos(value) + self.focus_avg_line_label_spacing
-        )
+        if value > 0:
+            self.focus_avg_line_label.setPos(
+                self.__xaxis_pos(arg) - (text_aabb.width() / 2),
+                self.__yaxis_pos(value) + self.focus_avg_line_label_spacing
+            )
+        else:
+            self.focus_avg_line_label.setPos(
+                self.__xaxis_pos(arg) - (text_aabb.width() / 2),
+                self.__yaxis_pos(value) - self.focus_avg_line_label_spacing - text_aabb.height()
+            )
         self.focus_avg_line_label.setZValue(-0.1)
+
+    def set_ensure_z_hline(self, z: int | None) -> None:
+        if z is None:
+            self.z_hline.hide()
+            self.z_hline_label.hide()
+            return
+
+        _z: int = z-1
+        
+        xpos_max: float = (
+            self.__xaxis_pos(min(self.x_max, max(self.focus) + self.focus_neighbor_extent))
+            if self.focus else \
+            self.__xaxis_pos(self.x_max)
+        ) + (self.bar_interval / 2)
+        
+        self.z_hline.setLine(
+            QLineF(
+                0, 0,
+                xpos_max, 0,
+            )
+        )
+        self.z_hline.setPos(0, self.__yaxis_pos(_z))
+        self.z_hline.setPen(self.z_hline_pen)
+
+        self.z_hline_label.setText(f"Z-1 = {_z}")
+        self.z_hline_label.setPos(xpos_max * 1.02, self.__yaxis_pos(_z) - (self.z_hline_label.boundingRect().height() / 2))
+        self.z_hline_label.setPen(self.z_hline_pen)
+        self.z_hline_label.setBrush(self.z_hline_pen.color())
+
+        self.z_hline.show()
+        self.z_hline_label.show()
 
     @override
     def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, /, widget: QWidget | None = None) -> None:

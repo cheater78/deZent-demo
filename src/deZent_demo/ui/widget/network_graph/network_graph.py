@@ -179,6 +179,9 @@ class NetworkGraphGatewayNode(NetworkGraphNode): # TODO: inheritance friendly St
     def next_gw_edge(self) -> NetworkGraphEdge:
         return cast(NetworkGraph, self._graph).gw_get_next_gw_edge(self)
 
+    def ce_edge(self) -> NetworkGraphEdge:
+        return cast(NetworkGraph, self._graph).gw_get_ce_edge(self)
+
 @dataclass
 class NetworkGraphEdgeStyle(Style):
     edge_arrow_style: GraphicsArrowStyle = field(
@@ -305,5 +308,11 @@ class NetworkGraph(Styled[NetworkGraphStyle], GraphicsDirectedGraph):
     def gw_get_next_gw_edge(self, gw: NetworkGraphGatewayNode) -> NetworkGraphEdge:
         for edge in self._edges:
             if edge.begin_node() == gw and isinstance(edge.end_node(), NetworkGraphGatewayNode):
+                return cast(NetworkGraphEdge, edge)
+        raise RuntimeError(f"NetworkGraph did not contain an edge starting from the requested GW node!")
+
+    def gw_get_ce_edge(self, gw: NetworkGraphGatewayNode) -> NetworkGraphEdge:
+        for edge in self._edges:
+            if edge.begin_node() == gw and not isinstance(edge.end_node(), NetworkGraphGatewayNode): # TODO: CE edge class
                 return cast(NetworkGraphEdge, edge)
         raise RuntimeError(f"NetworkGraph did not contain an edge starting from the requested GW node!")
