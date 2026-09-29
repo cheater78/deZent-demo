@@ -86,7 +86,7 @@ class CBloomFilter(CntDataStructure):
 
 			# print('Element Removed')
 		else:
-			print('Element does probably not exist')
+			print('Element does probably not exist or CBF buckets overflowed')
 			pass
 
 	def is_empty(self) -> bool:

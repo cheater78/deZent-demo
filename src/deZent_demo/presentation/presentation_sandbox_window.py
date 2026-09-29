@@ -80,10 +80,10 @@ class PresentationSandboxWindow(Styled[PresentationSandboxWindowStyle], SandboxW
             QPointF(0.0, 0.0),
             QSizeF(300, 300)
         )
-        self._network_graph_widget.fit_scene_in_view()
         self._cbf_plot_widget.setVisible(False)
 
         self.__init_demo_logic()
+        self._network_graph_widget.fit_scene_in_view()
 
     def __init_ui(self) -> None:
         self.setCentralWidget(self._main_widget)
@@ -114,15 +114,15 @@ class PresentationSandboxWindow(Styled[PresentationSandboxWindowStyle], SandboxW
         QShortcut(QKeySequence(Qt.Key.Key_Space), self).activated.connect(self._control_overlay.next_button().click)
 
 ################################################################################################################################
-# NOTE: turn back
+# NOTE: turn back traveler, these roads will rob you of your will to live
 ################################################################################################################################
     
     def __init_demo_logic(self) -> None:
         # NOTE: I'm truly sorry for this - didn't have time for a proper architecture
-        self.__init_demo_logic_gw1_starts_collection_as_ccc()
-        self.__init_demo_logic_gw2_collects_sm_measurements()
+        self.__init_demo_logic_gw1()
+        self.__init_demo_logic_gw2()
 
-    def __init_demo_logic_gw1_starts_collection_as_ccc(self) -> None:
+    def __init_demo_logic_gw1(self) -> None:
         # GW 1
         gw1_id: NetworkNodeID = 1
         gw1: deZentGateway = self._dZ_gws[gw1_id]
@@ -274,8 +274,8 @@ class PresentationSandboxWindow(Styled[PresentationSandboxWindowStyle], SandboxW
 
                 self._control_overlay.set_content(
                     ControlOverlayContent(
-                        "CCC receives the CBF with initial noise",
-                        "",
+                        "CCC receives the CBF",
+                        "The CBF was passed around the ring each GW adding their received measurements by key. The CBF also still contains the noise added at the beginning.",
                         "Remove initial noise",
                         "Next"
                     )
@@ -493,7 +493,7 @@ class PresentationSandboxWindow(Styled[PresentationSandboxWindowStyle], SandboxW
 
         gw1.set_instrumentor(gw1_instrumentor)
 
-    def __init_demo_logic_gw2_collects_sm_measurements(self) -> None:
+    def __init_demo_logic_gw2(self) -> None:
         # GW 2
         gw2_id: NetworkNodeID = 2
         gw2: deZentGateway = self._dZ_gws[gw2_id]
