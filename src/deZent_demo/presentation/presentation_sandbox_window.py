@@ -128,7 +128,33 @@ class PresentationSandboxWindow(Styled[PresentationSandboxWindowStyle], SandboxW
 ################################################################################################################################
 # NOTE: turn back traveler, these roads will rob you of your will to live
 ################################################################################################################################
-    
+
+# NOTE: Cheat-Sheet: General pattern for a single "Presentation State" / Instrumentation cb and/or gate 
+# 
+# gate: QtInstrumentorGate                                      # a Instrumentation gate to stop execution at - humans are slow, givem time to watch
+# def next():                                                   # a function bound to the "Next" Button
+#    ...
+#    release gate                                               # continue NetworkThread = deZent execution
+#
+# def instrumentation_event():                                  # a function bound to a chosen instrumentation event
+#    ...mutate visual representation as needed...
+#        e.g. update / show cbf, mark nodes as CCC and/or "interactive"(double click calls specified callback)
+#
+#    change ControlOverlayContent(                              # set contents of the explanation box (dont forget the commas or your strings will fuse together)
+#        current_step_title,
+#        current_step_description,
+#        next_step_title_or_teaser,
+#        next_button_label_content = "Next",
+#    )
+#
+#    set next button callback by button.clicked.connect(next)   # either transfer directly to the next state or release the gate to proceed to the next instrumentation event / gate
+#
+#                                                               # register the callback for the instrumentation_event
+# instrumentor.set_instrument_callback  ( event = e.g. dZGWInstrumentEvent.CCC_ROUND_BEGIN , callback = instrumentation_event )
+#                                                               # register the gate for the instrumentation_event
+# instrumentor.set_instrument_gate      ( event = e.g. dZGWInstrumentEvent.CCC_ROUND_BEGIN , gate )
+#
+
     def __init_demo_logic(self) -> None:
         # NOTE: I'm truly sorry for this - didn't have time for a proper architecture
         self.__init_demo_logic_gw1()
@@ -137,8 +163,8 @@ class PresentationSandboxWindow(Styled[PresentationSandboxWindowStyle], SandboxW
     def __init_demo_logic_gw1(self) -> None:
         # GW 1
         gw1_id: NetworkNodeID = 1
-        gw1: deZentGateway = self._dZ_gws[gw1_id]
-        gw1_node: NetworkGraphGatewayNode = cast(NetworkGraphGatewayNode, self._network_graph_gateways[gw1_id])
+        gw1: deZentGateway = self._dZ_gws[gw1_id]                                                                   # the functional deZent-Gateway
+        gw1_node: NetworkGraphGatewayNode = cast(NetworkGraphGatewayNode, self._network_graph_gateways[gw1_id])     # the network graph representation (UI)
         gw1_instrumentor: dZGWInstrumentor = dZGWInstrumentor()
 
         # Step 0: deZent round begins

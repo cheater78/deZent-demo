@@ -8,7 +8,7 @@ import heapq
 class AbstractTimeEnv(ABC):
     
     @abstractmethod
-    def _now_(self) -> datetime:
+    def now(self) -> datetime:
         pass
 
     @abstractmethod
@@ -17,11 +17,11 @@ class AbstractTimeEnv(ABC):
 
 class RealTimeEnv(AbstractTimeEnv):
     
-    def _now_(self) -> datetime:
+    def now(self) -> datetime:
         return datetime.now()
 
     def wait_until(self, time_point: datetime) -> bool:
-        now: datetime = self._now_()
+        now: datetime = self.now()
         if time_point <= now:
             return True
         remaining_s: float = (time_point - now).total_seconds()
@@ -39,7 +39,7 @@ class SimTimeEnv(AbstractTimeEnv):
         self._waiters_: dict[datetime, deque[threading.Event]] = {}
         self._stop_event: threading.Event = threading.Event()
 
-    def _now_(self) -> datetime:
+    def now(self) -> datetime:
         with self._lck_:
             return self._discrete_current_time_
 

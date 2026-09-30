@@ -204,10 +204,8 @@ class CBFPlot(Styled[CBFPlotStyle], QGraphicsWidget):
         self.yaxis_arrow: GraphicsArrow = GraphicsArrow(QPoint(0, -1))
         self.yaxis_markers: dict[int, QGraphicsLineItem] = {}
         self.yaxis_marker_labels: dict[int, QGraphicsSimpleTextItem] = {}
-        self.yaxis_label: QGraphicsSimpleTextItem = QGraphicsSimpleTextItem("count", parent=self) # TODO: y axis label
-        self.yaxis_label.setBrush(self._style.axis_line_marker_label_style.fill)
-        self.yaxis_label.setPen(self._style.axis_line_marker_label_style.border.pen)
-        self.yaxis_label.setFont(self._style.axis_line_marker_label_style.font)
+        self.yaxis_label_text: str = "count" # TODO: y axis label
+        self.yaxis_label: QGraphicsSimpleTextItem = QGraphicsSimpleTextItem(parent=self) 
 
         # x axis config
         self.xaxis_lines: list[QGraphicsLineItem] = []
@@ -216,10 +214,8 @@ class CBFPlot(Styled[CBFPlotStyle], QGraphicsWidget):
         self.xaxis_markers: dict[int, QGraphicsLineItem] = {}
         self.xaxis_marker_labels: dict[int, QGraphicsSimpleTextItem] = {}
         self.xaxis_size: float = 0.0
-        self.xaxis_label: QGraphicsSimpleTextItem = QGraphicsSimpleTextItem("key hash value", parent=self) # TODO: x axis label
-        self.xaxis_label.setBrush(self._style.axis_line_marker_label_style.fill)
-        self.xaxis_label.setPen(self._style.axis_line_marker_label_style.border.pen)
-        self.xaxis_label.setFont(self._style.axis_line_marker_label_style.font)
+        self.xaxis_label_text: str = "key hash value" # TODO: x axis label
+        self.xaxis_label: QGraphicsSimpleTextItem = QGraphicsSimpleTextItem(parent=self) 
 
         # focus MINIMUM!
         self.focus_avg_line: QGraphicsLineItem = QGraphicsLineItem(parent=self)
@@ -531,6 +527,10 @@ class CBFPlot(Styled[CBFPlotStyle], QGraphicsWidget):
 
         x_pos += self.xaxis_arrow.boundingRect().width()
 
+        self.xaxis_label.setText(self.xaxis_label_text)
+        self.xaxis_label.setBrush(self._style.axis_line_marker_label_style.fill)
+        self.xaxis_label.setPen(self._style.axis_line_marker_label_style.border.pen)
+        self.xaxis_label.setFont(self._style.axis_line_marker_label_style.font)
         self.xaxis_label.setPos(x_pos + self.axis_marker_label_spacing, self.axis_marker_label_spacing)
 
     def __set_yaxis_marker(self, value: int) -> None:
@@ -584,6 +584,10 @@ class CBFPlot(Styled[CBFPlotStyle], QGraphicsWidget):
             marker_value: int = begin_marker_value * (i + 1)
             self.__set_yaxis_marker(marker_value)
 
+        self.yaxis_label.setText(self.yaxis_label_text)
+        self.yaxis_label.setBrush(self._style.axis_line_marker_label_style.fill)
+        self.yaxis_label.setPen(self._style.axis_line_marker_label_style.border.pen)
+        self.yaxis_label.setFont(self._style.axis_line_marker_label_style.font)
         self.yaxis_label.setPos(
             - self.yaxis_label.boundingRect().width() - self.axis_marker_label_spacing,
             - self.yaxis_label.boundingRect().height() - (yaxis_len + self.yaxis_arrow_len) 
